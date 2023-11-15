@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, Image};
 use serde_json::Value;
 
 fn main() {
@@ -8,11 +8,14 @@ fn main() {
         .build();
 
     app.connect_activate(|app| {
+        let fire_emoji_icon = Image::from_file("fire-emoji.ico");
+
         let win = ApplicationWindow::builder()
             .application(app)
             .default_width(800)
             .default_height(600)
             .title("Arson JSON")
+            .icon(&fire_emoji_icon.pixbuf().clone().unwrap())
             .build();
 
         let v_box = Box::builder()
@@ -124,6 +127,7 @@ fn main() {
 
         help_about_item.connect_activate({
             let win = win.clone();
+            let fire_emoji_icon = fire_emoji_icon.clone();
             move |_| {
                 let p = AboutDialog::new();
                 p.set_website_label(Some("github.com/asgrim/arson"));
@@ -131,7 +135,7 @@ fn main() {
                 p.set_authors(&["James Titcumb"]);
                 p.set_title("About Arson");
                 p.set_transient_for(Some(&win));
-                p.set_logo_icon_name(Some("config-users"));
+                p.set_logo(Some(&fire_emoji_icon.pixbuf().clone().unwrap()));
                 p.show_all();
             }
         });
