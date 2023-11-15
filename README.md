@@ -10,10 +10,10 @@ This is a GTK3-based UI to view and manipulate JSON.
 
  * Minify JSON
  * Prettify JSON
+ * Open JSON from a file
 
 ## Feature ideas
 
- * Open from a file
  * Open from a URL
  * Opening from Nautilus context (e.g. "Open with Arson")
  * Syntax highlighting
