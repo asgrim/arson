@@ -2,7 +2,10 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, Image, FileChooserDialog, FileChooserAction, ResponseType};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType};
+use gtk::gdk_pixbuf::{Pixbuf};
+use gtk::gio::{Cancellable, MemoryInputStream};
+use gtk::glib::Bytes;
 use serde_json::Value;
 
 fn main() {
@@ -11,14 +14,17 @@ fn main() {
         .build();
 
     app.connect_activate(|app| {
-        let fire_emoji_icon = Image::from_file("fire-emoji.ico");
+        let stream = MemoryInputStream::from_bytes(
+            &Bytes::from(include_bytes!("../fire-emoji.ico"))
+        );
+        let fire_emoji_icon_pb = Pixbuf::from_stream(&stream, Cancellable::NONE).unwrap();
 
         let win = ApplicationWindow::builder()
             .application(app)
             .default_width(800)
             .default_height(600)
             .title("Arson JSON")
-            .icon(&fire_emoji_icon.pixbuf().clone().unwrap())
+            .icon(&fire_emoji_icon_pb.clone())
             .build();
 
         let v_box = Box::builder()
@@ -171,7 +177,7 @@ fn main() {
 
         help_about_item.connect_activate({
             let win = win.clone();
-            let fire_emoji_icon = fire_emoji_icon.clone();
+            let fire_emoji_icon_pb = fire_emoji_icon_pb.clone();
             move |_| {
                 let p = AboutDialog::new();
                 p.set_website_label(Some("github.com/asgrim/arson"));
@@ -179,7 +185,7 @@ fn main() {
                 p.set_authors(&["James Titcumb"]);
                 p.set_title("About Arson");
                 p.set_transient_for(Some(&win));
-                p.set_logo(Some(&fire_emoji_icon.pixbuf().clone().unwrap()));
+                p.set_logo(Some(&fire_emoji_icon_pb.clone()));
                 p.show_all();
             }
         });
