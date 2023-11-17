@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition};
 use gtk::gdk_pixbuf::{Pixbuf};
 use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
@@ -104,28 +104,62 @@ fn main() {
         scrolled_window.add(&text_view);
 
         pretty_button.connect_clicked({
+            let win = win.clone();
             let text_view = text_view.clone();
             move |_| {
                 let buffer = text_view.buffer().unwrap();
                 let (start, end) = buffer.bounds();
                 let pretty_json = buffer.text(&start, &end, true).unwrap();
 
-                // @todo handle invalid JSON - currently we crash - https://github.com/asgrim/arson/issues/1
-                let v: Value = serde_json::from_str(pretty_json.as_str()).unwrap();
+                let v: Value = match serde_json::from_str(pretty_json.as_str()) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let error_dialog = MessageDialog::builder()
+                            .transient_for(&win)
+                            .window_position(WindowPosition::CenterOnParent)
+                            .message_type(MessageType::Warning)
+                            .buttons(ButtonsType::Ok)
+                            .title("JSON was invalid")
+                            .text(format!("The current text was not valid JSON.\n\n{}", e))
+                            .build();
+                        error_dialog.connect_response(move |error_dialog, _| {
+                            error_dialog.close();
+                        });
+                        error_dialog.run();
+                        return
+                    },
+                };
 
                 buffer.set_text(&serde_json::to_string_pretty(&v).unwrap());
             }
         });
 
         minify_button.connect_clicked({
+            let win = win.clone();
             let text_view = text_view.clone();
             move |_| {
                 let buffer = text_view.buffer().unwrap();
                 let (start, end) = buffer.bounds();
                 let ugly_json = buffer.text(&start, &end, true).unwrap();
 
-                // @todo handle invalid JSON - currently we crash - https://github.com/asgrim/arson/issues/1
-                let v: Value = serde_json::from_str(ugly_json.as_str()).unwrap();
+                let v: Value = match serde_json::from_str(ugly_json.as_str()) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let error_dialog = MessageDialog::builder()
+                            .transient_for(&win)
+                            .window_position(WindowPosition::CenterOnParent)
+                            .message_type(MessageType::Warning)
+                            .buttons(ButtonsType::Ok)
+                            .title("JSON was invalid")
+                            .text(format!("The current text was not valid JSON.\n\n{}", e))
+                            .build();
+                        error_dialog.connect_response(move |error_dialog, _| {
+                            error_dialog.close();
+                        });
+                        error_dialog.run();
+                        return
+                    },
+                };
 
                 buffer.set_text(&serde_json::to_string(&v).unwrap());
             }
