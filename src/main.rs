@@ -34,13 +34,17 @@ fn main() {
         win.add(&v_box);
 
         let file_menu = Menu::new();
-        let file_quit_item = MenuItem::builder()
-            .label("Quit")
-            .build();
         let file_open_item = MenuItem::builder()
             .label("Open...")
             .build();
+        let file_open_url_item = MenuItem::builder()
+            .label("Open URL...")
+            .build();
+        let file_quit_item = MenuItem::builder()
+            .label("Quit")
+            .build();
         file_menu.append(&file_open_item);
+        file_menu.append(&file_open_url_item);
         file_menu.append(&file_quit_item);
 
         let help_menu = Menu::new();
@@ -178,6 +182,7 @@ fn main() {
 
         file_open_item.connect_activate({
             let win = win.clone();
+            let text_view = text_view.clone();
             move |_| {
                 let file_chooser = FileChooserDialog::builder()
                     .title("Open File")
@@ -210,6 +215,39 @@ fn main() {
                 });
 
                 file_chooser.show_all();
+            }
+        });
+
+        file_open_url_item.connect_activate({
+            let win = win.clone();
+            let text_view = text_view.clone();
+            move |_| {
+                // @todo prompt for the URL
+                let url = "https://raw.githubusercontent.com/asgrim/arson/main/.github/mdn-example.json";
+
+                let body = reqwest::blocking::get(url).unwrap().text().unwrap();
+
+                let _: Value = match serde_json::from_str(body.as_str()) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        let error_dialog = MessageDialog::builder()
+                            .transient_for(&win)
+                            .window_position(WindowPosition::CenterOnParent)
+                            .message_type(MessageType::Warning)
+                            .buttons(ButtonsType::Ok)
+                            .title("JSON was invalid")
+                            .text(format!("The content from the URL {} was not valid JSON.\n\n{}", url, e))
+                            .build();
+                        error_dialog.connect_response(move |error_dialog, _| {
+                            error_dialog.close();
+                        });
+                        error_dialog.run();
+                        return
+                    },
+                };
+
+                let buffer = text_view.buffer().unwrap();
+                buffer.set_text(body.as_str());
             }
         });
 
