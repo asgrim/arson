@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 gtk = "0.18.1"
 serde_json = { version = "1.0.108", features = ["preserve_order"] }
+open = "5.0.0"

@@ -44,9 +44,13 @@ fn main() {
         file_menu.append(&file_quit_item);
 
         let help_menu = Menu::new();
+        let help_github_item = MenuItem::builder()
+            .label("GitHub Issues")
+            .build();
         let help_about_item = MenuItem::builder()
             .label("About")
             .build();
+        help_menu.append(&help_github_item);
         help_menu.append(&help_about_item);
 
         let menu_bar = MenuBar::new();
@@ -222,6 +226,10 @@ fn main() {
                 p.set_logo(Some(&fire_emoji_icon_pb.clone()));
                 p.show_all();
             }
+        });
+
+        help_github_item.connect_activate(|_| {
+            let _ = open::that("https://github.com/asgrim/arson/issues");
         });
 
         win.show_all();
