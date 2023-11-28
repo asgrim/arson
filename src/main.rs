@@ -222,32 +222,57 @@ fn main() {
             let win = win.clone();
             let text_view = text_view.clone();
             move |_| {
-                // @todo prompt for the URL
-                let url = "https://raw.githubusercontent.com/asgrim/arson/main/.github/mdn-example.json";
+                let url_entry_dialog = gtk::Dialog::builder()
+                    .transient_for(&win)
+                    .window_position(WindowPosition::CenterOnParent)
+                    .title("Open JSON From URL")
+                    .build();
+                let url_entry_label = gtk::Label::builder()
+                    .label("Enter the URL containing JSON to be opened")
+                    .build();
+                let url_entry_text = gtk::Entry::builder()
+                    .build();
+                url_entry_dialog.content_area().add(&url_entry_label);
+                url_entry_dialog.content_area().add(&url_entry_text);
+                url_entry_dialog.add_button("Open", ResponseType::Ok);
 
-                let body = reqwest::blocking::get(url).unwrap().text().unwrap();
+                url_entry_dialog.connect_response({
+                    let win = win.clone();
+                    let text_view = text_view.clone();
+                    move |url_entry_dialog, response| {
+                        if response == ResponseType::Ok {
+                            let url_text = url_entry_text.text();
 
-                let _: Value = match serde_json::from_str(body.as_str()) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let error_dialog = MessageDialog::builder()
-                            .transient_for(&win)
-                            .window_position(WindowPosition::CenterOnParent)
-                            .message_type(MessageType::Warning)
-                            .buttons(ButtonsType::Ok)
-                            .title("JSON was invalid")
-                            .text(format!("The content from the URL {} was not valid JSON.\n\n{}", url, e))
-                            .build();
-                        error_dialog.connect_response(move |error_dialog, _| {
-                            error_dialog.close();
-                        });
-                        error_dialog.run();
-                        return
-                    },
-                };
+                            // @todo handle request failures
+                            let body = reqwest::blocking::get(url_text.as_str()).unwrap().text().unwrap();
 
-                let buffer = text_view.buffer().unwrap();
-                buffer.set_text(body.as_str());
+                            let _: Value = match serde_json::from_str(body.as_str()) {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    let error_dialog = MessageDialog::builder()
+                                        .transient_for(&win)
+                                        .window_position(WindowPosition::CenterOnParent)
+                                        .message_type(MessageType::Warning)
+                                        .buttons(ButtonsType::Ok)
+                                        .title("JSON was invalid")
+                                        .text(format!("The content from the URL {} was not valid JSON.\n\n{}", url_text.as_str(), e))
+                                        .build();
+                                    error_dialog.connect_response(move |error_dialog, _| {
+                                        error_dialog.close();
+                                    });
+                                    error_dialog.run();
+                                    return
+                                },
+                            };
+
+                            let buffer = text_view.buffer().unwrap();
+                            buffer.set_text(body.as_str());
+                        }
+                        url_entry_dialog.close();
+                    }
+                });
+
+                url_entry_dialog.show_all();
             }
         });
 
