@@ -243,8 +243,24 @@ fn main() {
                         if response == ResponseType::Ok {
                             let url_text = url_entry_text.text();
 
-                            // @todo handle request failures
-                            let body = reqwest::blocking::get(url_text.as_str()).unwrap().text().unwrap();
+                            let body = match reqwest::blocking::get(url_text.as_str()) {
+                                Ok(http_response) => http_response.text().unwrap(),
+                                Err(e) => {
+                                    let error_dialog = MessageDialog::builder()
+                                        .transient_for(&win)
+                                        .window_position(WindowPosition::CenterOnParent)
+                                        .message_type(MessageType::Warning)
+                                        .buttons(ButtonsType::Ok)
+                                        .title("JSON was invalid")
+                                        .text(format!("The URL {} could not be loaded.\n\n{}", url_text.as_str(), e))
+                                        .build();
+                                    error_dialog.connect_response(move |error_dialog, _| {
+                                        error_dialog.close();
+                                    });
+                                    error_dialog.run();
+                                    return
+                                },
+                            };
 
                             let _: Value = match serde_json::from_str(body.as_str()) {
                                 Ok(v) => v,
