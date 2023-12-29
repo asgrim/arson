@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use gtk::prelude::*;
 use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition};
+use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::{Pixbuf};
 use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
@@ -19,10 +20,14 @@ fn main() {
         );
         let fire_emoji_icon_pb = Pixbuf::from_stream(&stream, Cancellable::NONE).unwrap();
 
+        let screen_height = unsafe { gdk_screen_height() } as f64;
+        let win_height = (screen_height * 0.7).round();
+
         let win = ApplicationWindow::builder()
             .application(app)
-            .default_width(800)
-            .default_height(600)
+            .default_width((win_height * 1.33).round() as i32)
+            .default_height(win_height as i32)
+            .window_position(WindowPosition::Center)
             .title("Arson JSON")
             .icon(&fire_emoji_icon_pb.clone())
             .build();
