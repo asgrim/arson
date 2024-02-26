@@ -101,6 +101,16 @@ fn main() {
             .build();
         toolbar.add(&minify_button);
 
+        let remove_double_newlines = ToolButton::builder()
+            .visible(true)
+            .label("Remove \\n\\n")
+            .tooltip_text("Remove double-newlines, i.e. \\n\\n")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("emblem-symbolic-link")
+            .build();
+        toolbar.add(&remove_double_newlines);
+
         let scrolled_window = ScrolledWindow::builder()
             .visible(true)
             .can_focus(true)
@@ -175,6 +185,17 @@ fn main() {
                 };
 
                 buffer.set_text(&serde_json::to_string(&v).unwrap());
+            }
+        });
+
+        remove_double_newlines.connect_clicked({
+            let text_view = text_view.clone();
+            move |_| {
+                let buffer = text_view.buffer().unwrap();
+                let (start, end) = buffer.bounds();
+                let text_content = buffer.text(&start, &end, true).unwrap();
+
+                buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
             }
         });
 
