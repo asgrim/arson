@@ -2,11 +2,12 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION, StateFlags};
 use gtk::gdk::ffi::gdk_screen_height;
+use gtk::gdk::ModifierType;
 use gtk::gdk_pixbuf::{Pixbuf};
 use gtk::gio::{Cancellable, MemoryInputStream};
-use gtk::glib::Bytes;
+use gtk::glib::{Bytes, Propagation};
 use serde_json::Value;
 
 fn main() {
@@ -335,6 +336,28 @@ fn main() {
 
         help_github_item.connect_activate(|_| {
             let _ = open::that("https://github.com/asgrim/arson/issues");
+        });
+
+        win.connect_key_press_event({
+            let text_view = text_view.clone();
+            move |_, event_key| {
+                if event_key.state().contains(ModifierType::CONTROL_MASK) &&
+                    (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
+                {
+                    let mut dir = -1;
+                    if event_key.hardware_keycode() == 86 {
+                        dir = 1;
+                    }
+
+                    let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+                    let css_override = CssProvider::new();
+                    let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
+
+                    text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
+                }
+
+                Propagation::Proceed
+            }
         });
 
         win.show_all();
