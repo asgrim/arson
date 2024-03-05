@@ -2,11 +2,12 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION, StateFlags};
 use gtk::gdk::ffi::gdk_screen_height;
+use gtk::gdk::ModifierType;
 use gtk::gdk_pixbuf::{Pixbuf};
 use gtk::gio::{Cancellable, MemoryInputStream};
-use gtk::glib::Bytes;
+use gtk::glib::{Bytes, Propagation};
 use serde_json::Value;
 
 fn main() {
@@ -101,6 +102,16 @@ fn main() {
             .build();
         toolbar.add(&minify_button);
 
+        let remove_double_newlines = ToolButton::builder()
+            .visible(true)
+            .label("Remove \\n\\n")
+            .tooltip_text("Remove double-newlines, i.e. \\n\\n")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("emblem-symbolic-link")
+            .build();
+        toolbar.add(&remove_double_newlines);
+
         let scrolled_window = ScrolledWindow::builder()
             .visible(true)
             .can_focus(true)
@@ -175,6 +186,17 @@ fn main() {
                 };
 
                 buffer.set_text(&serde_json::to_string(&v).unwrap());
+            }
+        });
+
+        remove_double_newlines.connect_clicked({
+            let text_view = text_view.clone();
+            move |_| {
+                let buffer = text_view.buffer().unwrap();
+                let (start, end) = buffer.bounds();
+                let text_content = buffer.text(&start, &end, true).unwrap();
+
+                buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
             }
         });
 
@@ -314,6 +336,35 @@ fn main() {
 
         help_github_item.connect_activate(|_| {
             let _ = open::that("https://github.com/asgrim/arson/issues");
+        });
+
+        win.connect_key_press_event({
+            let text_view = text_view.clone();
+            move |_, event_key| {
+                if event_key.state().contains(ModifierType::CONTROL_MASK) &&
+                    (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
+                {
+                    let mut dir = -1;
+                    if event_key.hardware_keycode() == 86 {
+                        dir = 1;
+                    }
+
+                    let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+                    let css_override = CssProvider::new();
+                    let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
+
+                    text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
+                }
+
+                Propagation::Proceed
+            }
+        });
+
+        win.connect_show({
+            let text_view = text_view.clone();
+            move |_| {
+                text_view.grab_focus();
+            }
         });
 
         win.show_all();
