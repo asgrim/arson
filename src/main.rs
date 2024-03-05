@@ -360,6 +360,13 @@ fn main() {
             }
         });
 
+        win.connect_show({
+            let text_view = text_view.clone();
+            move |_| {
+                text_view.grab_focus();
+            }
+        });
+
         win.show_all();
     });
 
