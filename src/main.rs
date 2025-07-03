@@ -1,14 +1,20 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufReader;
 use gtk::prelude::*;
-use gtk::{Application, ApplicationWindow, Box, Orientation, Toolbar, ToolButton, ScrolledWindow, ShadowType, TextView, Menu, MenuBar, MenuItem, AboutDialog, FileChooserDialog, FileChooserAction, ResponseType, MessageDialog, MessageType, ButtonsType, WindowPosition, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION, StateFlags};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
-use gtk::gdk::{ModifierType, ScrollDirection};
-use gtk::gdk_pixbuf::{Pixbuf};
+use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
-use gtk::glib::{Bytes, Propagation};
-use serde_json::Value;
+use gtk::glib::Bytes;
+mod file_mgt;
+mod json_editor;
+
+fn remove_double_newline_action(text_view: TextView)
+{
+    let buffer = text_view.buffer().unwrap();
+    let (start, end) = buffer.bounds();
+    let text_content = buffer.text(&start, &end, true).unwrap();
+
+    buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
+}
 
 fn main() {
     let app = Application::builder()
@@ -130,74 +136,18 @@ fn main() {
         pretty_button.connect_clicked({
             let win = win.clone();
             let text_view = text_view.clone();
-            move |_| {
-                let buffer = text_view.buffer().unwrap();
-                let (start, end) = buffer.bounds();
-                let pretty_json = buffer.text(&start, &end, true).unwrap();
-
-                let v: Value = match serde_json::from_str(pretty_json.as_str()) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let error_dialog = MessageDialog::builder()
-                            .transient_for(&win)
-                            .window_position(WindowPosition::CenterOnParent)
-                            .message_type(MessageType::Warning)
-                            .buttons(ButtonsType::Ok)
-                            .title("JSON was invalid")
-                            .text(format!("The current text was not valid JSON.\n\n{}", e))
-                            .build();
-                        error_dialog.connect_response(move |error_dialog, _| {
-                            error_dialog.close();
-                        });
-                        error_dialog.run();
-                        return
-                    },
-                };
-
-                buffer.set_text(&serde_json::to_string_pretty(&v).unwrap());
-            }
+            move |_| json_editor::prettify_json_action(win.clone(), text_view.clone())
         });
 
         minify_button.connect_clicked({
             let win = win.clone();
             let text_view = text_view.clone();
-            move |_| {
-                let buffer = text_view.buffer().unwrap();
-                let (start, end) = buffer.bounds();
-                let ugly_json = buffer.text(&start, &end, true).unwrap();
-
-                let v: Value = match serde_json::from_str(ugly_json.as_str()) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        let error_dialog = MessageDialog::builder()
-                            .transient_for(&win)
-                            .window_position(WindowPosition::CenterOnParent)
-                            .message_type(MessageType::Warning)
-                            .buttons(ButtonsType::Ok)
-                            .title("JSON was invalid")
-                            .text(format!("The current text was not valid JSON.\n\n{}", e))
-                            .build();
-                        error_dialog.connect_response(move |error_dialog, _| {
-                            error_dialog.close();
-                        });
-                        error_dialog.run();
-                        return
-                    },
-                };
-
-                buffer.set_text(&serde_json::to_string(&v).unwrap());
-            }
+            move |_| json_editor::minify_json_action(win.clone(), text_view.clone())
         });
 
         remove_double_newlines.connect_clicked({
             let text_view = text_view.clone();
-            move |_| {
-                let buffer = text_view.buffer().unwrap();
-                let (start, end) = buffer.bounds();
-                let text_content = buffer.text(&start, &end, true).unwrap();
-
-                buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
-            }
+            move |_| remove_double_newline_action(text_view.clone())
         });
 
         file_quit_item.connect_activate({
@@ -210,113 +160,13 @@ fn main() {
         file_open_item.connect_activate({
             let win = win.clone();
             let text_view = text_view.clone();
-            move |_| {
-                let file_chooser = FileChooserDialog::builder()
-                    .title("Open File")
-                    .parent(&win)
-                    .action(FileChooserAction::Open)
-                    .build();
-
-                file_chooser.add_buttons(&[
-                    ("Open", ResponseType::Ok),
-                    ("Cancel", ResponseType::Cancel),
-                ]);
-
-                file_chooser.connect_response({
-                    let text_view = text_view.clone();
-                    move |file_chooser, response| {
-                        if response == ResponseType::Ok {
-                            let filename = file_chooser.filename().expect("Couldn't get filename");
-                            let file = File::open(filename).expect("Couldn't open file");
-
-                            let mut reader = BufReader::new(file);
-                            let mut contents = String::new();
-                            let _ = reader.read_to_string(&mut contents);
-
-                            text_view.buffer()
-                                .unwrap()
-                                .set_text(&contents);
-                        }
-                        file_chooser.close();
-                    }
-                });
-
-                file_chooser.show_all();
-            }
+            move |_| file_mgt::file_open_item_action(win.clone(), text_view.clone())
         });
 
         file_open_url_item.connect_activate({
             let win = win.clone();
             let text_view = text_view.clone();
-            move |_| {
-                let url_entry_dialog = gtk::Dialog::builder()
-                    .transient_for(&win)
-                    .window_position(WindowPosition::CenterOnParent)
-                    .title("Open JSON From URL")
-                    .build();
-                let url_entry_label = gtk::Label::builder()
-                    .label("Enter the URL containing JSON to be opened")
-                    .build();
-                let url_entry_text = gtk::Entry::builder()
-                    .build();
-                url_entry_dialog.content_area().add(&url_entry_label);
-                url_entry_dialog.content_area().add(&url_entry_text);
-                url_entry_dialog.add_button("Open", ResponseType::Ok);
-
-                url_entry_dialog.connect_response({
-                    let win = win.clone();
-                    let text_view = text_view.clone();
-                    move |url_entry_dialog, response| {
-                        if response == ResponseType::Ok {
-                            let url_text = url_entry_text.text();
-
-                            let body = match reqwest::blocking::get(url_text.as_str()) {
-                                Ok(http_response) => http_response.text().unwrap(),
-                                Err(e) => {
-                                    let error_dialog = MessageDialog::builder()
-                                        .transient_for(&win)
-                                        .window_position(WindowPosition::CenterOnParent)
-                                        .message_type(MessageType::Warning)
-                                        .buttons(ButtonsType::Ok)
-                                        .title("JSON was invalid")
-                                        .text(format!("The URL {} could not be loaded.\n\n{}", url_text.as_str(), e))
-                                        .build();
-                                    error_dialog.connect_response(move |error_dialog, _| {
-                                        error_dialog.close();
-                                    });
-                                    error_dialog.run();
-                                    return
-                                },
-                            };
-
-                            let _: Value = match serde_json::from_str(body.as_str()) {
-                                Ok(v) => v,
-                                Err(e) => {
-                                    let error_dialog = MessageDialog::builder()
-                                        .transient_for(&win)
-                                        .window_position(WindowPosition::CenterOnParent)
-                                        .message_type(MessageType::Warning)
-                                        .buttons(ButtonsType::Ok)
-                                        .title("JSON was invalid")
-                                        .text(format!("The content from the URL {} was not valid JSON.\n\n{}", url_text.as_str(), e))
-                                        .build();
-                                    error_dialog.connect_response(move |error_dialog, _| {
-                                        error_dialog.close();
-                                    });
-                                    error_dialog.run();
-                                    return
-                                },
-                            };
-
-                            let buffer = text_view.buffer().unwrap();
-                            buffer.set_text(body.as_str());
-                        }
-                        url_entry_dialog.close();
-                    }
-                });
-
-                url_entry_dialog.show_all();
-            }
+            move |_| file_mgt::file_open_url_item_action(win.clone(), text_view.clone())
         });
 
         help_about_item.connect_activate({
@@ -340,46 +190,12 @@ fn main() {
 
         win.connect_scroll_event({
             let text_view = text_view.clone();
-            move |_, event_key| {
-                if event_key.state().contains(ModifierType::CONTROL_MASK)
-                    && (event_key.direction() == ScrollDirection::Down || event_key.direction() == ScrollDirection::Up) {
-                    let mut dir = 1;
-
-                    if event_key.direction() == ScrollDirection::Down {
-                        dir = -1;
-                    }
-
-                    let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
-                    let css_override = CssProvider::new();
-                    let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
-
-                    text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
-                }
-
-                Propagation::Proceed
-            }
+            move |_, event_key| json_editor::ctrl_scroll_resize_text_view_action(event_key.clone(), text_view.clone())
         });
 
         win.connect_key_press_event({
             let text_view = text_view.clone();
-            move |_, event_key| {
-                if event_key.state().contains(ModifierType::CONTROL_MASK) &&
-                    (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
-                {
-                    let mut dir = -1;
-                    if event_key.hardware_keycode() == 86 {
-                        dir = 1;
-                    }
-
-                    let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
-                    let css_override = CssProvider::new();
-                    let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
-
-                    text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
-                }
-
-                Propagation::Proceed
-            }
+            move |_, event_key| json_editor::ctrl_plus_minus_text_view_action(event_key.clone(), text_view.clone())
         });
 
         win.connect_show({
