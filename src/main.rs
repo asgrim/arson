@@ -1,9 +1,9 @@
 use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, CellRendererText, ListStore, Menu, MenuBar, MenuItem, Orientation, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, TreeStore, TreeView, TreeViewColumn, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
-use gtk::glib::Bytes;
+use gtk::glib::{Bytes, Value};
 mod file_mgt;
 mod json_editor;
 
@@ -204,6 +204,48 @@ fn main() {
                 text_view.grab_focus();
             }
         });
+
+        let tree_view = TreeView::builder()
+            .visible(true)
+            .expand(true)
+            .build();
+
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+        gtk::prelude::CellLayoutExt::pack_start(&column, &cell, true);
+        // Association of the view's column with the model's `id` column.
+        gtk::prelude::TreeViewColumnExt::add_attribute(&column, &cell, "text", 0);
+        tree_view.append_column(&column);
+        let column = TreeViewColumn::new();
+        let cell = CellRendererText::new();
+        gtk::prelude::CellLayoutExt::pack_start(&column, &cell, true);
+        // Association of the view's column with the model's `id` column.
+        gtk::prelude::TreeViewColumnExt::add_attribute(&column, &cell, "text", 1);
+        tree_view.append_column(&column);
+
+        let model = ListStore::new(&[u32::static_type(), String::static_type()]);
+
+        // Filling up the tree view.
+        // let entries = &["Michel", "Sara", "Liam", "Zelda", "Neo", "Octopus master"];
+        // for (i, entry) in entries.iter().enumerate() {
+        //     model.inser
+        // }
+        // Append one row per entry; each call to append() returns a new iter for that row
+        let iter = model.append();
+        model.set_value(&iter, 0, &Value::from(111));
+        model.set_value(&iter, 1, &Value::from("test1"));
+
+        let iter = model.append();
+        model.set_value(&iter, 0, &Value::from(222));
+        model.set_value(&iter, 1, &Value::from("test2"));
+
+        let iter = model.append();
+        model.set_value(&iter, 0, &Value::from(333));
+        model.set_value(&iter, 1, &Value::from("test3"));
+        tree_view.set_model(Some(&model));
+        tree_view.set_headers_visible(false);
+
+        v_box.add(&tree_view);
 
         win.show_all();
     });
