@@ -1,11 +1,15 @@
 use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, CellRendererText, ListStore, Menu, MenuBar, MenuItem, Orientation, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, TreeStore, TreeView, TreeViewColumn, WindowPosition};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Paned, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
-use gtk::glib::{Bytes, Value};
+use gtk::glib::Bytes;
+use std::cell::Cell;
+use std::rc::Rc;
+
 mod file_mgt;
 mod json_editor;
+mod tree_view;
 
 fn remove_double_newline_action(text_view: TextView)
 {
@@ -15,6 +19,7 @@ fn remove_double_newline_action(text_view: TextView)
 
     buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
 }
+
 
 fn main() {
     let app = Application::builder()
@@ -44,6 +49,8 @@ fn main() {
             .orientation(Orientation::Vertical)
             .build();
         win.add(&v_box);
+
+        let paned = Paned::new(Orientation::Horizontal);
 
         let file_menu = Menu::new();
         let file_open_item = MenuItem::builder()
@@ -118,13 +125,26 @@ fn main() {
             .build();
         toolbar.add(&remove_double_newlines);
 
+        let build_tree_button = ToolButton::builder()
+            .visible(true)
+            .label("Build Tree")
+            .tooltip_text("Build a structured tree view from the JSON below")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("emoji-nature")
+            .build();
+        toolbar.add(&build_tree_button);
+
+        paned.set_visible(true);
+        v_box.add(&paned);
+
         let scrolled_window = ScrolledWindow::builder()
             .visible(true)
             .can_focus(true)
             .shadow_type(ShadowType::In)
             .expand(true)
             .build();
-        v_box.add(&scrolled_window);
+        paned.pack1(&scrolled_window, true, true);
 
         let text_view = TextView::builder()
             .visible(true)
@@ -205,47 +225,28 @@ fn main() {
             }
         });
 
-        let tree_view = TreeView::builder()
-            .visible(true)
-            .expand(true)
-            .build();
+        let (tree_view, model) = tree_view::factory_tree_view();
 
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-        gtk::prelude::CellLayoutExt::pack_start(&column, &cell, true);
-        // Association of the view's column with the model's `id` column.
-        gtk::prelude::TreeViewColumnExt::add_attribute(&column, &cell, "text", 0);
-        tree_view.append_column(&column);
-        let column = TreeViewColumn::new();
-        let cell = CellRendererText::new();
-        gtk::prelude::CellLayoutExt::pack_start(&column, &cell, true);
-        // Association of the view's column with the model's `id` column.
-        gtk::prelude::TreeViewColumnExt::add_attribute(&column, &cell, "text", 1);
-        tree_view.append_column(&column);
+        paned.pack2(&tree_view, true, true);
 
-        let model = ListStore::new(&[u32::static_type(), String::static_type()]);
+        let init_done = Rc::new(Cell::new(false));
+        paned.connect_size_allocate({
+            let paned = paned.clone();
+            let init_done = init_done.clone();
+            move |_, alloc| {
+                if !init_done.get() {
+                    paned.set_position(((alloc.width() as f64) * 0.6).round() as i32);
+                    init_done.set(true);
+                }
+            }
+        });
 
-        // Filling up the tree view.
-        // let entries = &["Michel", "Sara", "Liam", "Zelda", "Neo", "Octopus master"];
-        // for (i, entry) in entries.iter().enumerate() {
-        //     model.inser
-        // }
-        // Append one row per entry; each call to append() returns a new iter for that row
-        let iter = model.append();
-        model.set_value(&iter, 0, &Value::from(111));
-        model.set_value(&iter, 1, &Value::from("test1"));
-
-        let iter = model.append();
-        model.set_value(&iter, 0, &Value::from(222));
-        model.set_value(&iter, 1, &Value::from("test2"));
-
-        let iter = model.append();
-        model.set_value(&iter, 0, &Value::from(333));
-        model.set_value(&iter, 1, &Value::from("test3"));
-        tree_view.set_model(Some(&model));
-        tree_view.set_headers_visible(false);
-
-        v_box.add(&tree_view);
+        build_tree_button.connect_clicked({
+            let win = win.clone();
+            move |_| {
+                tree_view::build_tree_from_text(win.clone(), text_view.clone(), model.clone(), tree_view.clone());
+            }
+        });
 
         win.show_all();
     });
