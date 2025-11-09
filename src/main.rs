@@ -125,6 +125,17 @@ fn main() {
             .build();
         toolbar.add(&remove_double_newlines);
 
+        // Toggle Tree View panel visibility
+        let toggle_tree_button = ToolButton::builder()
+            .visible(true)
+            .label("Toggle Tree")
+            .tooltip_text("Show/Hide the tree view panel")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("view-list-symbolic")
+            .build();
+        toolbar.add(&toggle_tree_button);
+
         paned.set_visible(true);
         v_box.add(&paned);
 
@@ -227,6 +238,31 @@ fn main() {
 
         paned.pack2(&overlay, true, true);
 
+        // Track Tree visibility state
+        let tree_visible = Rc::new(Cell::new(true));
+
+        // Wire toggle button to show/hide the tree panel and update state
+        toggle_tree_button.connect_clicked({
+            let overlay = overlay.clone();
+            let tree_visible = tree_visible.clone();
+            let text_view = text_view.clone();
+            let model = model.clone();
+            let tree_view = tree_view.clone();
+            let invalid_overlay = invalid_overlay.clone();
+            move |_| {
+                let currently_visible = tree_visible.get();
+                if currently_visible {
+                    overlay.hide();
+                    tree_visible.set(false);
+                } else {
+                    overlay.show();
+                    tree_visible.set(true);
+                    // Rebuild once when showing
+                    tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                }
+            }
+        });
+
         let init_done = Rc::new(Cell::new(false));
         paned.connect_size_allocate({
             let paned = paned.clone();
@@ -239,15 +275,18 @@ fn main() {
             }
         });
 
-        // Auto-update tree view when text changes
+        // Auto-update tree view when text changes (disabled when hidden)
         if let Some(buffer) = text_view.buffer() {
             buffer.connect_changed({
                 let text_view = text_view.clone();
                 let model = model.clone();
                 let tree_view = tree_view.clone();
                 let invalid_overlay = invalid_overlay.clone();
+                let tree_visible = tree_visible.clone();
                 move |_| {
-                    tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                    if tree_visible.get() {
+                        tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                    }
                 }
             });
         }
