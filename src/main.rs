@@ -136,6 +136,16 @@ fn main() {
             .build();
         toolbar.add(&unescape_json_string);
 
+        let escape_json_string = ToolButton::builder()
+            .visible(true)
+            .label("Escape")
+            .tooltip_text("Escape current text into a JSON string (adds quotes and backslashes)")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("document-save-as-symbolic")
+            .build();
+        toolbar.add(&escape_json_string);
+
         // Toggle Tree View panel visibility
         let toggle_tree_button = ToolButton::builder()
             .visible(true)
@@ -186,6 +196,12 @@ fn main() {
             let win = win.clone();
             let text_view = text_view.clone();
             move |_| unescape_json_action(win.clone(), text_view.clone())
+        });
+
+        escape_json_string.connect_clicked({
+            let win = win.clone();
+            let text_view = text_view.clone();
+            move |_| json_editor::escape_json_action(win.clone(), text_view.clone())
         });
 
         file_quit_item.connect_activate({

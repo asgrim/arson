@@ -141,3 +141,16 @@ pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView)
         }
     }
 }
+
+pub fn escape_json_action(_win: ApplicationWindow, text_view: TextView)
+{
+    // Escape the current buffer into a JSON string
+    // Example input: {"a":1}
+    // Output: "{\"a\":1}"
+    let buffer = text_view.buffer().unwrap();
+    let (start, end) = buffer.bounds();
+    let current_text = buffer.text(&start, &end, true).unwrap();
+
+    let escaped = serde_json::to_string(current_text.as_str()).unwrap();
+    buffer.set_text(&escaped);
+}
