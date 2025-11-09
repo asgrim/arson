@@ -8,7 +8,7 @@ fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &st
         JsonValue::Object(map) => {
             let iter = model.append(parent);
             model.set_value(&iter, 0, &Value::from(key));
-            model.set_value(&iter, 1, &Value::from("{}"));
+            model.set_value(&iter, 1, &Value::from("{object}"));
             for (k, val) in map.iter() {
                 append_json_value(model, Some(&iter), k.as_str(), val);
             }
@@ -16,7 +16,7 @@ fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &st
         JsonValue::Array(arr) => {
             let iter = model.append(parent);
             model.set_value(&iter, 0, &Value::from(key));
-            model.set_value(&iter, 1, &Value::from("[]"));
+            model.set_value(&iter, 1, &Value::from("[list]"));
             for (i, val) in arr.iter().enumerate() {
                 let idx_key = format!("[{}]", i);
                 append_json_value(model, Some(&iter), &idx_key, val);
@@ -125,7 +125,7 @@ pub fn build_tree_from_text(text_view: TextView, model: TreeStore, tree_view: Tr
             // Valid JSON: hide overlay and populate tree
             invalid_overlay.hide();
             model.clear();
-            append_json_value(&model, None, "", &v);
+            append_json_value(&model, None, "🔥", &v);
 
             // Expand the root node (first top-level row) by default
             let path = TreePath::new_first();
