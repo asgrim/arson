@@ -269,7 +269,7 @@ fn main() {
             let init_done = init_done.clone();
             move |_, alloc| {
                 if !init_done.get() {
-                    paned.set_position(((alloc.width() as f64) * 0.6).round() as i32);
+                    paned.set_position(((alloc.width() as f64) * 0.7).round() as i32);
                     init_done.set(true);
                 }
             }
