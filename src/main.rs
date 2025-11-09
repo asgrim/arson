@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Paned, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Overlay, Paned, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
@@ -125,16 +125,6 @@ fn main() {
             .build();
         toolbar.add(&remove_double_newlines);
 
-        let build_tree_button = ToolButton::builder()
-            .visible(true)
-            .label("Build Tree")
-            .tooltip_text("Build a structured tree view from the JSON below")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("emoji-nature")
-            .build();
-        toolbar.add(&build_tree_button);
-
         paned.set_visible(true);
         v_box.add(&paned);
 
@@ -226,8 +216,16 @@ fn main() {
         });
 
         let (tree_view, model) = tree_view::factory_tree_view();
+        let invalid_overlay = tree_view::factory_invalid_overlay();
 
-        paned.pack2(&tree_view, true, true);
+        // Create an overlay to show invalid JSON message over the tree
+        let overlay = Overlay::builder()
+            .visible(true)
+            .build();
+        overlay.add(&tree_view);
+        overlay.add_overlay(&invalid_overlay);
+
+        paned.pack2(&overlay, true, true);
 
         let init_done = Rc::new(Cell::new(false));
         paned.connect_size_allocate({
@@ -241,14 +239,21 @@ fn main() {
             }
         });
 
-        build_tree_button.connect_clicked({
-            let win = win.clone();
-            move |_| {
-                tree_view::build_tree_from_text(win.clone(), text_view.clone(), model.clone(), tree_view.clone());
-            }
-        });
+        // Auto-update tree view when text changes
+        if let Some(buffer) = text_view.buffer() {
+            buffer.connect_changed({
+                let text_view = text_view.clone();
+                let model = model.clone();
+                let tree_view = tree_view.clone();
+                let invalid_overlay = invalid_overlay.clone();
+                move |_| {
+                    tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                }
+            });
+        }
 
         win.show_all();
+        text_view.buffer().unwrap().set_text("{}");
     });
 
     app.run();

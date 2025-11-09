@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{ApplicationWindow, ButtonsType, CellRendererText, MessageDialog, MessageType, TextView, TreePath, TreeStore, TreeView, TreeViewColumn, WindowPosition};
+use gtk::{Align, CellRendererText, CssProvider, Label, Orientation, TextView, TreePath, TreeStore, TreeView, TreeViewColumn, Justification, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use gtk::glib::Value;
 use serde_json::Value as JsonValue;
 
@@ -74,35 +74,73 @@ pub fn factory_tree_view() -> (TreeView, TreeStore) {
     (tree_view, model)
 }
 
-pub fn build_tree_from_text(win: ApplicationWindow, text_view: TextView, model: TreeStore, tree_view: TreeView) {
+pub fn factory_invalid_overlay() -> gtk::Box {
+    // Translucent grey overlay message for invalid JSON
+    let invalid_overlay = gtk::Box::new(Orientation::Vertical, 8);
+    invalid_overlay.set_visible(false);
+    invalid_overlay.set_halign(Align::Fill);
+    invalid_overlay.set_valign(Align::Fill);
+    invalid_overlay.set_hexpand(true);
+    invalid_overlay.set_vexpand(true);
+
+    let css = CssProvider::new();
+    let _ = css.load_from_data(br#"
+.invalid-overlay {
+    background: rgba(0, 0, 0, 0.30);
+}
+
+.invalid-overlay label {
+    color: white;
+    font-weight: bold;
+    font-size: 16pt;
+}
+"#);
+    invalid_overlay.style_context().add_provider(&css, STYLE_PROVIDER_PRIORITY_APPLICATION);
+    invalid_overlay.style_context().add_class("invalid-overlay");
+
+    let invalid_label = Label::new(Some("Invalid JSON"));
+    // Center horizontally and vertically
+    invalid_label.set_halign(Align::Center);
+    invalid_label.set_valign(Align::Center);
+    // Allow the label to take extra space so centering works inside the Box
+    invalid_label.set_hexpand(true);
+    invalid_label.set_vexpand(true);
+    // Center multi-line text within the label's own allocation
+    invalid_label.set_xalign(0.5);
+    invalid_label.set_justify(Justification::Center);
+    invalid_overlay.add(&invalid_label);
+    invalid_overlay.hide();
+
+    invalid_overlay
+}
+
+pub fn build_tree_from_text(text_view: TextView, model: TreeStore, tree_view: TreeView, invalid_overlay: gtk::Box) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let text = buffer.text(&start, &end, true).unwrap();
 
     let parsed: Result<JsonValue, _> = serde_json::from_str(text.as_str());
-    let v = match parsed {
-        Ok(v) => v,
-        Err(e) => {
-            let error_dialog = MessageDialog::builder()
-                .transient_for(&win)
-                .window_position(WindowPosition::CenterOnParent)
-                .message_type(MessageType::Warning)
-                .buttons(ButtonsType::Ok)
-                .title("JSON was invalid")
-                .text(format!("The current text was not valid JSON.\n\n{}", e))
-                .build();
-            error_dialog.connect_response(move |error_dialog, _| {
-                error_dialog.close();
-            });
-            error_dialog.run();
-            return;
+    match parsed {
+        Ok(v) => {
+            // Valid JSON: hide overlay and populate tree
+            invalid_overlay.hide();
+            model.clear();
+            append_json_value(&model, None, "", &v);
+
+            // Expand the root node (first top-level row) by default
+            let path = TreePath::new_first();
+            tree_view.expand_row(&path, false);
         }
-    };
-
-    model.clear();
-    append_json_value(&model, None, "root", &v);
-
-    // Expand the root node (first top-level row) by default
-    let path = TreePath::new_first();
-    tree_view.expand_row(&path, false);
+        Err(e) => {
+            // Invalid JSON: clear tree, show overlay with message
+            if let Some(label) = invalid_overlay
+                .children()
+                .into_iter()
+                .find_map(|w| w.downcast::<Label>().ok())
+            {
+                label.set_label(&format!("Invalid JSON\n{}", e));
+            }
+            invalid_overlay.show();
+        }
+    }
 }
