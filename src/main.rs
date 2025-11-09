@@ -6,6 +6,7 @@ use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
 use std::cell::Cell;
 use std::rc::Rc;
+use crate::json_editor::unescape_json_action;
 
 mod file_mgt;
 mod json_editor;
@@ -121,9 +122,29 @@ fn main() {
             .tooltip_text("Remove double-newlines, i.e. \\n\\n")
             .is_important(true)
             .use_underline(true)
-            .icon_name("emblem-symbolic-link")
+            .icon_name("error-correct-symbolic")
             .build();
         toolbar.add(&remove_double_newlines);
+
+        let unescape_json_string = ToolButton::builder()
+            .visible(true)
+            .label("Unescape")
+            .tooltip_text("Remove backslashes from escaped characters")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("document-properties-symbolic")
+            .build();
+        toolbar.add(&unescape_json_string);
+
+        let escape_json_string = ToolButton::builder()
+            .visible(true)
+            .label("Escape")
+            .tooltip_text("Escape current text into a JSON string (adds quotes and backslashes)")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("document-save-as-symbolic")
+            .build();
+        toolbar.add(&escape_json_string);
 
         // Toggle Tree View panel visibility
         let toggle_tree_button = ToolButton::builder()
@@ -169,6 +190,18 @@ fn main() {
         remove_double_newlines.connect_clicked({
             let text_view = text_view.clone();
             move |_| remove_double_newline_action(text_view.clone())
+        });
+
+        unescape_json_string.connect_clicked({
+            let win = win.clone();
+            let text_view = text_view.clone();
+            move |_| unescape_json_action(win.clone(), text_view.clone())
+        });
+
+        escape_json_string.connect_clicked({
+            let win = win.clone();
+            let text_view = text_view.clone();
+            move |_| json_editor::escape_json_action(win.clone(), text_view.clone())
         });
 
         file_quit_item.connect_activate({

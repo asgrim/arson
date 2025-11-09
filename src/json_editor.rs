@@ -99,3 +99,58 @@ pub fn minify_json_action(win: ApplicationWindow, text_view: TextView)
 
     buffer.set_text(&serde_json::to_string(&v).unwrap());
 }
+
+pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView)
+{
+    // Unescape a buffer that contains JSON encoded as a JSON string
+    // Example input: {\"a\":1} or "{\"a\":1}"
+    // Output: {"a":1}
+    let buffer = text_view.buffer().unwrap();
+    let (start, end) = buffer.bounds();
+    let current_text = buffer.text(&start, &end, true).unwrap();
+
+    // 1) First, try to parse the whole buffer as a JSON string
+    if let Ok(unescaped) = serde_json::from_str::<String>(current_text.as_str()) {
+        buffer.set_text(&unescaped);
+        return;
+    }
+
+    // 2) If that failed, try treating the buffer as the content of a JSON string
+    //    by wrapping it in quotes (useful when the buffer is missing surrounding quotes)
+    let wrapped = format!("\"{}\"", current_text);
+    match serde_json::from_str::<String>(&wrapped) {
+        Ok(unescaped) => {
+            buffer.set_text(&unescaped);
+        },
+        Err(e) => {
+            let error_dialog = MessageDialog::builder()
+                .transient_for(&win)
+                .window_position(WindowPosition::CenterOnParent)
+                .message_type(MessageType::Warning)
+                .buttons(ButtonsType::Ok)
+                .title("Could not unescape text")
+                .text(format!(
+                    "The current text could not be interpreted as an escaped JSON string.\n\n{}",
+                    e
+                ))
+                .build();
+            error_dialog.connect_response(move |error_dialog, _| {
+                error_dialog.close();
+            });
+            error_dialog.run();
+        }
+    }
+}
+
+pub fn escape_json_action(_win: ApplicationWindow, text_view: TextView)
+{
+    // Escape the current buffer into a JSON string
+    // Example input: {"a":1}
+    // Output: "{\"a\":1}"
+    let buffer = text_view.buffer().unwrap();
+    let (start, end) = buffer.bounds();
+    let current_text = buffer.text(&start, &end, true).unwrap();
+
+    let escaped = serde_json::to_string(current_text.as_str()).unwrap();
+    buffer.set_text(&escaped);
+}
