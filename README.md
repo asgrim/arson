@@ -4,10 +4,11 @@
 
 This is a GTK3-based UI to view and manipulate JSON.
 
-![Screenshot showing the Arson main screen](https://raw.githubusercontent.com/asgrim/arson/main/.github/img/arson-example.png)
+![Screenshot showing the Arson main screen](.github/img/arson-example.png)
 
 ## Features
 
- * Minify JSON
- * Prettify JSON
- * Open JSON from a file
+ * Minify and Pretty JSON
+ * Open JSON from a file, or URL
+ * Remove double `\n\n` (useful for pasting from some HAR files/logs etc)
+ * Tree view for helpful navigation

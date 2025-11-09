@@ -1,11 +1,15 @@
 use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Overlay, Paned, PolicyType, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
+use std::cell::Cell;
+use std::rc::Rc;
+
 mod file_mgt;
 mod json_editor;
+mod tree_view;
 
 fn remove_double_newline_action(text_view: TextView)
 {
@@ -15,6 +19,7 @@ fn remove_double_newline_action(text_view: TextView)
 
     buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
 }
+
 
 fn main() {
     let app = Application::builder()
@@ -44,6 +49,8 @@ fn main() {
             .orientation(Orientation::Vertical)
             .build();
         win.add(&v_box);
+
+        let paned = Paned::new(Orientation::Horizontal);
 
         let file_menu = Menu::new();
         let file_open_item = MenuItem::builder()
@@ -118,13 +125,27 @@ fn main() {
             .build();
         toolbar.add(&remove_double_newlines);
 
+        // Toggle Tree View panel visibility
+        let toggle_tree_button = ToolButton::builder()
+            .visible(true)
+            .label("Toggle Tree")
+            .tooltip_text("Show/Hide the tree view panel")
+            .is_important(true)
+            .use_underline(true)
+            .icon_name("view-list-symbolic")
+            .build();
+        toolbar.add(&toggle_tree_button);
+
+        paned.set_visible(true);
+        v_box.add(&paned);
+
         let scrolled_window = ScrolledWindow::builder()
             .visible(true)
             .can_focus(true)
             .shadow_type(ShadowType::In)
             .expand(true)
             .build();
-        v_box.add(&scrolled_window);
+        paned.pack1(&scrolled_window, true, true);
 
         let text_view = TextView::builder()
             .visible(true)
@@ -205,7 +226,80 @@ fn main() {
             }
         });
 
+        let (tree_view, model) = tree_view::factory_tree_view();
+        let invalid_overlay = tree_view::factory_invalid_overlay();
+
+        // Create an overlay to show invalid JSON message over the tree
+        let overlay = Overlay::builder()
+            .visible(true)
+            .build();
+        // Wrap the tree view in a scrolled window so it doesn't grow the main window
+        let scroller = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+        scroller.set_policy(PolicyType::Automatic, PolicyType::Automatic);
+        scroller.set_hexpand(true);
+        scroller.set_vexpand(true);
+        scroller.add(&tree_view);
+
+        overlay.add(&scroller);
+        overlay.add_overlay(&invalid_overlay);
+
+        paned.pack2(&overlay, true, true);
+
+        // Track Tree visibility state
+        let tree_visible = Rc::new(Cell::new(true));
+
+        // Wire toggle button to show/hide the tree panel and update state
+        toggle_tree_button.connect_clicked({
+            let overlay = overlay.clone();
+            let tree_visible = tree_visible.clone();
+            let text_view = text_view.clone();
+            let model = model.clone();
+            let tree_view = tree_view.clone();
+            let invalid_overlay = invalid_overlay.clone();
+            move |_| {
+                let currently_visible = tree_visible.get();
+                if currently_visible {
+                    overlay.hide();
+                    tree_visible.set(false);
+                } else {
+                    overlay.show();
+                    tree_visible.set(true);
+                    // Rebuild once when showing
+                    tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                }
+            }
+        });
+
+        let init_done = Rc::new(Cell::new(false));
+        paned.connect_size_allocate({
+            let paned = paned.clone();
+            let init_done = init_done.clone();
+            move |_, alloc| {
+                if !init_done.get() {
+                    paned.set_position(((alloc.width() as f64) * 0.7).round() as i32);
+                    init_done.set(true);
+                }
+            }
+        });
+
+        // Auto-update tree view when text changes (disabled when hidden)
+        if let Some(buffer) = text_view.buffer() {
+            buffer.connect_changed({
+                let text_view = text_view.clone();
+                let model = model.clone();
+                let tree_view = tree_view.clone();
+                let invalid_overlay = invalid_overlay.clone();
+                let tree_visible = tree_visible.clone();
+                move |_| {
+                    if tree_visible.get() {
+                        tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                    }
+                }
+            });
+        }
+
         win.show_all();
+        text_view.buffer().unwrap().set_text("{}");
     });
 
     app.run();
