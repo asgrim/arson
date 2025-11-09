@@ -1,5 +1,5 @@
 use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Overlay, Paned, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
+use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Overlay, Paned, PolicyType, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
@@ -233,7 +233,14 @@ fn main() {
         let overlay = Overlay::builder()
             .visible(true)
             .build();
-        overlay.add(&tree_view);
+        // Wrap the tree view in a scrolled window so it doesn't grow the main window
+        let scroller = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+        scroller.set_policy(PolicyType::Automatic, PolicyType::Automatic);
+        scroller.set_hexpand(true);
+        scroller.set_vexpand(true);
+        scroller.add(&tree_view);
+
+        overlay.add(&scroller);
         overlay.add_overlay(&invalid_overlay);
 
         paned.pack2(&overlay, true, true);
