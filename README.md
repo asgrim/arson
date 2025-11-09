@@ -11,4 +11,5 @@ This is a GTK3-based UI to view and manipulate JSON.
  * Minify and Pretty JSON
  * Open JSON from a file, or URL
  * Remove double `\n\n` (useful for pasting from some HAR files/logs etc)
+ * Escape/unescape JSON strings
  * Tree view for helpful navigation
