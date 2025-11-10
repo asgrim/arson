@@ -1,21 +1,23 @@
-use gtk::{ApplicationWindow, ButtonsType, FileChooserAction, FileChooserDialog, MessageDialog, MessageType, ResponseType, TextView, WindowPosition};
+use gtk::prelude::{
+    ContainerExt, DialogExt, DialogExtManual, EntryExt, FileChooserExt, GtkWindowExt,
+    TextBufferExt, TextViewExt, WidgetExt,
+};
+use gtk::{
+    ApplicationWindow, ButtonsType, FileChooserAction, FileChooserDialog, MessageDialog,
+    MessageType, ResponseType, TextView, WindowPosition,
+};
+use serde_json::Value;
 use std::fs::File;
 use std::io::{BufReader, Read};
-use serde_json::Value;
-use gtk::prelude::{ContainerExt, DialogExt, DialogExtManual, EntryExt, FileChooserExt, GtkWindowExt, TextBufferExt, TextViewExt, WidgetExt};
 
-pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView)
-{
+pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView) {
     let file_chooser = FileChooserDialog::builder()
         .title("Open File")
         .parent(&win)
         .action(FileChooserAction::Open)
         .build();
 
-    file_chooser.add_buttons(&[
-        ("Open", ResponseType::Ok),
-        ("Cancel", ResponseType::Cancel),
-    ]);
+    file_chooser.add_buttons(&[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)]);
 
     file_chooser.connect_response({
         let text_view = text_view.clone();
@@ -28,9 +30,7 @@ pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView)
                 let mut contents = String::new();
                 let _ = reader.read_to_string(&mut contents);
 
-                text_view.buffer()
-                    .unwrap()
-                    .set_text(&contents);
+                text_view.buffer().unwrap().set_text(&contents);
             }
             file_chooser.close();
         }
@@ -39,8 +39,7 @@ pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView)
     file_chooser.show_all();
 }
 
-pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView)
-{
+pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView) {
     let url_entry_dialog = gtk::Dialog::builder()
         .transient_for(&win)
         .window_position(WindowPosition::CenterOnParent)
@@ -49,8 +48,7 @@ pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView)
     let url_entry_label = gtk::Label::builder()
         .label("Enter the URL containing JSON to be opened")
         .build();
-    let url_entry_text = gtk::Entry::builder()
-        .build();
+    let url_entry_text = gtk::Entry::builder().build();
     url_entry_dialog.content_area().add(&url_entry_label);
     url_entry_dialog.content_area().add(&url_entry_text);
     url_entry_dialog.add_button("Open", ResponseType::Ok);
@@ -71,14 +69,18 @@ pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView)
                             .message_type(MessageType::Warning)
                             .buttons(ButtonsType::Ok)
                             .title("JSON was invalid")
-                            .text(format!("The URL {} could not be loaded.\n\n{}", url_text.as_str(), e))
+                            .text(format!(
+                                "The URL {} could not be loaded.\n\n{}",
+                                url_text.as_str(),
+                                e
+                            ))
                             .build();
                         error_dialog.connect_response(move |error_dialog, _| {
                             error_dialog.close();
                         });
                         error_dialog.run();
-                        return
-                    },
+                        return;
+                    }
                 };
 
                 let _: Value = match serde_json::from_str(body.as_str()) {
@@ -90,14 +92,18 @@ pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView)
                             .message_type(MessageType::Warning)
                             .buttons(ButtonsType::Ok)
                             .title("JSON was invalid")
-                            .text(format!("The content from the URL {} was not valid JSON.\n\n{}", url_text.as_str(), e))
+                            .text(format!(
+                                "The content from the URL {} was not valid JSON.\n\n{}",
+                                url_text.as_str(),
+                                e
+                            ))
                             .build();
                         error_dialog.connect_response(move |error_dialog, _| {
                             error_dialog.close();
                         });
                         error_dialog.run();
-                        return
-                    },
+                        return;
+                    }
                 };
 
                 let buffer = text_view.buffer().unwrap();

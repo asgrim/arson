@@ -1,51 +1,67 @@
-use gtk::{ApplicationWindow, ButtonsType, CssProvider, MessageDialog, MessageType, StateFlags, TextView, WindowPosition, STYLE_PROVIDER_PRIORITY_APPLICATION};
-use serde_json::Value;
 use gtk::gdk::{EventKey, EventScroll, ModifierType, ScrollDirection};
 use gtk::glib::Propagation;
-use gtk::prelude::{CssProviderExt, DialogExt, GtkWindowExt, StyleContextExt, StyleContextExtManual, TextBufferExt, TextViewExt, WidgetExt};
+use gtk::prelude::{
+    CssProviderExt, DialogExt, GtkWindowExt, StyleContextExt, StyleContextExtManual, TextBufferExt,
+    TextViewExt, WidgetExt,
+};
+use gtk::{
+    ApplicationWindow, ButtonsType, CssProvider, MessageDialog, MessageType, StateFlags, TextView,
+    WindowPosition, STYLE_PROVIDER_PRIORITY_APPLICATION,
+};
+use serde_json::Value;
 
-pub fn ctrl_scroll_resize_text_view_action(event_key: EventScroll, text_view: TextView) -> Propagation
-{
+pub fn ctrl_scroll_resize_text_view_action(
+    event_key: EventScroll,
+    text_view: TextView,
+) -> Propagation {
     if event_key.state().contains(ModifierType::CONTROL_MASK)
-        && (event_key.direction() == ScrollDirection::Down || event_key.direction() == ScrollDirection::Up) {
+        && (event_key.direction() == ScrollDirection::Down
+            || event_key.direction() == ScrollDirection::Up)
+    {
         let mut dir = 1;
 
         if event_key.direction() == ScrollDirection::Down {
             dir = -1;
         }
 
-        let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+        let cur_size =
+            text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
         let css_override = CssProvider::new();
-        let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
+        let _ = css_override
+            .load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
 
-        text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
+        text_view
+            .style_context()
+            .add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
     Propagation::Proceed
 }
 
-pub fn ctrl_plus_minus_text_view_action(event_key: EventKey, text_view: TextView) -> Propagation
-{
-    if event_key.state().contains(ModifierType::CONTROL_MASK) &&
-        (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
+pub fn ctrl_plus_minus_text_view_action(event_key: EventKey, text_view: TextView) -> Propagation {
+    if event_key.state().contains(ModifierType::CONTROL_MASK)
+        && (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
     {
         let mut dir = -1;
         if event_key.hardware_keycode() == 86 {
             dir = 1;
         }
 
-        let cur_size = text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+        let cur_size =
+            text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
         let css_override = CssProvider::new();
-        let _ = css_override.load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
+        let _ = css_override
+            .load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
 
-        text_view.style_context().add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
+        text_view
+            .style_context()
+            .add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
 
     Propagation::Proceed
 }
 
-pub fn prettify_json_action(win: ApplicationWindow, text_view: TextView)
-{
+pub fn prettify_json_action(win: ApplicationWindow, text_view: TextView) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let pretty_json = buffer.text(&start, &end, true).unwrap();
@@ -65,15 +81,14 @@ pub fn prettify_json_action(win: ApplicationWindow, text_view: TextView)
                 error_dialog.close();
             });
             error_dialog.run();
-            return
-        },
+            return;
+        }
     };
 
     buffer.set_text(&serde_json::to_string_pretty(&v).unwrap());
 }
 
-pub fn minify_json_action(win: ApplicationWindow, text_view: TextView)
-{
+pub fn minify_json_action(win: ApplicationWindow, text_view: TextView) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let ugly_json = buffer.text(&start, &end, true).unwrap();
@@ -93,15 +108,14 @@ pub fn minify_json_action(win: ApplicationWindow, text_view: TextView)
                 error_dialog.close();
             });
             error_dialog.run();
-            return
-        },
+            return;
+        }
     };
 
     buffer.set_text(&serde_json::to_string(&v).unwrap());
 }
 
-pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView)
-{
+pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView) {
     // Unescape a buffer that contains JSON encoded as a JSON string
     // Example input: {\"a\":1} or "{\"a\":1}"
     // Output: {"a":1}
@@ -121,7 +135,7 @@ pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView)
     match serde_json::from_str::<String>(&wrapped) {
         Ok(unescaped) => {
             buffer.set_text(&unescaped);
-        },
+        }
         Err(e) => {
             let error_dialog = MessageDialog::builder()
                 .transient_for(&win)
@@ -142,8 +156,7 @@ pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView)
     }
 }
 
-pub fn escape_json_action(_win: ApplicationWindow, text_view: TextView)
-{
+pub fn escape_json_action(_win: ApplicationWindow, text_view: TextView) {
     // Escape the current buffer into a JSON string
     // Example input: {"a":1}
     // Output: "{\"a\":1}"

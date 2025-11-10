@@ -1,19 +1,21 @@
-use gtk::prelude::*;
-use gtk::{AboutDialog, Application, ApplicationWindow, Box, Menu, MenuBar, MenuItem, Orientation, Overlay, Paned, PolicyType, ScrolledWindow, ShadowType, TextView, ToolButton, Toolbar, WindowPosition};
 use gtk::gdk::ffi::gdk_screen_height;
 use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
+use gtk::prelude::*;
+use gtk::{
+    Application, ApplicationWindow, Box, Orientation, Overlay, Paned, PolicyType, ScrolledWindow,
+    ShadowType, TextView, ToolButton, Toolbar, WindowPosition,
+};
 use std::cell::Cell;
 use std::rc::Rc;
-use crate::json_editor::unescape_json_action;
 
 mod file_mgt;
 mod json_editor;
+mod menu_bar;
 mod tree_view;
 
-fn remove_double_newline_action(text_view: TextView)
-{
+fn remove_double_newline_action(text_view: TextView) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let text_content = buffer.text(&start, &end, true).unwrap();
@@ -21,16 +23,14 @@ fn remove_double_newline_action(text_view: TextView)
     buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
 }
 
-
 fn main() {
     let app = Application::builder()
         .application_id("com.jamestitcumb.ArsonGtk")
         .build();
 
     app.connect_activate(|app| {
-        let stream = MemoryInputStream::from_bytes(
-            &Bytes::from(include_bytes!("../fire-emoji.ico"))
-        );
+        let stream =
+            MemoryInputStream::from_bytes(&Bytes::from(include_bytes!("../fire-emoji.ico")));
         let fire_emoji_icon_pb = Pixbuf::from_stream(&stream, Cancellable::NONE).unwrap();
 
         let screen_height = unsafe { gdk_screen_height() } as f64;
@@ -53,47 +53,10 @@ fn main() {
 
         let paned = Paned::new(Orientation::Horizontal);
 
-        let file_menu = Menu::new();
-        let file_open_item = MenuItem::builder()
-            .label("Open...")
-            .build();
-        let file_open_url_item = MenuItem::builder()
-            .label("Open URL...")
-            .build();
-        let file_quit_item = MenuItem::builder()
-            .label("Quit")
-            .build();
-        file_menu.append(&file_open_item);
-        file_menu.append(&file_open_url_item);
-        file_menu.append(&file_quit_item);
+        let menu_bar = menu_bar::factory_menu_bar();
+        v_box.pack_start(&menu_bar.menu_bar, false, false, 0);
 
-        let help_menu = Menu::new();
-        let help_github_item = MenuItem::builder()
-            .label("GitHub Issues")
-            .build();
-        let help_about_item = MenuItem::builder()
-            .label("About")
-            .build();
-        help_menu.append(&help_github_item);
-        help_menu.append(&help_about_item);
-
-        let menu_bar = MenuBar::new();
-        let file_item = MenuItem::builder()
-            .label("File")
-            .submenu(&file_menu)
-            .build();
-        let help_item = MenuItem::builder()
-            .label("Help")
-            .submenu(&help_menu)
-            .build();
-        menu_bar.append(&file_item);
-        menu_bar.append(&help_item);
-        v_box.pack_start(&menu_bar, false, false, 0);
-
-        let toolbar = Toolbar::builder()
-            .visible(true)
-            .expand(false)
-            .build();
+        let toolbar = Toolbar::builder().visible(true).expand(false).build();
         v_box.add(&toolbar);
 
         let pretty_button = ToolButton::builder()
@@ -195,7 +158,7 @@ fn main() {
         unescape_json_string.connect_clicked({
             let win = win.clone();
             let text_view = text_view.clone();
-            move |_| unescape_json_action(win.clone(), text_view.clone())
+            move |_| json_editor::unescape_json_action(win.clone(), text_view.clone())
         });
 
         escape_json_string.connect_clicked({
@@ -204,52 +167,23 @@ fn main() {
             move |_| json_editor::escape_json_action(win.clone(), text_view.clone())
         });
 
-        file_quit_item.connect_activate({
-            let win = win.clone();
-            move |_| {
-                win.close();
-            }
-        });
-
-        file_open_item.connect_activate({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| file_mgt::file_open_item_action(win.clone(), text_view.clone())
-        });
-
-        file_open_url_item.connect_activate({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| file_mgt::file_open_url_item_action(win.clone(), text_view.clone())
-        });
-
-        help_about_item.connect_activate({
-            let win = win.clone();
-            let fire_emoji_icon_pb = fire_emoji_icon_pb.clone();
-            move |_| {
-                let p = AboutDialog::new();
-                p.set_website_label(Some("github.com/asgrim/arson"));
-                p.set_website(Some("https://github.com/asgrim/arson"));
-                p.set_authors(&["James Titcumb"]);
-                p.set_title("About Arson");
-                p.set_transient_for(Some(&win));
-                p.set_logo(Some(&fire_emoji_icon_pb.clone()));
-                p.show_all();
-            }
-        });
-
-        help_github_item.connect_activate(|_| {
-            let _ = open::that("https://github.com/asgrim/arson/issues");
-        });
+        menu_bar::attach_listeners(&menu_bar, &win.clone(), &text_view.clone(), &fire_emoji_icon_pb.clone());
 
         win.connect_scroll_event({
             let text_view = text_view.clone();
-            move |_, event_key| json_editor::ctrl_scroll_resize_text_view_action(event_key.clone(), text_view.clone())
+            move |_, event_key| {
+                json_editor::ctrl_scroll_resize_text_view_action(
+                    event_key.clone(),
+                    text_view.clone(),
+                )
+            }
         });
 
         win.connect_key_press_event({
             let text_view = text_view.clone();
-            move |_, event_key| json_editor::ctrl_plus_minus_text_view_action(event_key.clone(), text_view.clone())
+            move |_, event_key| {
+                json_editor::ctrl_plus_minus_text_view_action(event_key.clone(), text_view.clone())
+            }
         });
 
         win.connect_show({
@@ -263,9 +197,7 @@ fn main() {
         let invalid_overlay = tree_view::factory_invalid_overlay();
 
         // Create an overlay to show invalid JSON message over the tree
-        let overlay = Overlay::builder()
-            .visible(true)
-            .build();
+        let overlay = Overlay::builder().visible(true).build();
         // Wrap the tree view in a scrolled window so it doesn't grow the main window
         let scroller = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
         scroller.set_policy(PolicyType::Automatic, PolicyType::Automatic);
@@ -298,7 +230,12 @@ fn main() {
                     overlay.show();
                     tree_visible.set(true);
                     // Rebuild once when showing
-                    tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                    tree_view::build_tree_from_text(
+                        text_view.clone(),
+                        model.clone(),
+                        tree_view.clone(),
+                        invalid_overlay.clone(),
+                    );
                 }
             }
         });
@@ -325,7 +262,12 @@ fn main() {
                 let tree_visible = tree_visible.clone();
                 move |_| {
                     if tree_visible.get() {
-                        tree_view::build_tree_from_text(text_view.clone(), model.clone(), tree_view.clone(), invalid_overlay.clone());
+                        tree_view::build_tree_from_text(
+                            text_view.clone(),
+                            model.clone(),
+                            tree_view.clone(),
+                            invalid_overlay.clone(),
+                        );
                     }
                 }
             });

@@ -1,6 +1,9 @@
-use gtk::prelude::*;
-use gtk::{Align, CellRendererText, CssProvider, Label, Orientation, TextView, TreePath, TreeStore, TreeView, TreeViewColumn, Justification, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use gtk::glib::Value;
+use gtk::prelude::*;
+use gtk::{
+    Align, CellRendererText, CssProvider, Justification, Label, Orientation, TextView, TreePath,
+    TreeStore, TreeView, TreeViewColumn, STYLE_PROVIDER_PRIORITY_APPLICATION,
+};
 use serde_json::Value as JsonValue;
 
 fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &str, v: &JsonValue) {
@@ -46,10 +49,7 @@ fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &st
 }
 
 pub fn factory_tree_view() -> (TreeView, TreeStore) {
-    let tree_view = TreeView::builder()
-        .visible(true)
-        .expand(true)
-        .build();
+    let tree_view = TreeView::builder().visible(true).expand(true).build();
 
     // Two columns: Key and Value
     let column = TreeViewColumn::new();
@@ -84,7 +84,8 @@ pub fn factory_invalid_overlay() -> gtk::Box {
     invalid_overlay.set_vexpand(true);
 
     let css = CssProvider::new();
-    let _ = css.load_from_data(br#"
+    let _ = css.load_from_data(
+        br#"
 .invalid-overlay {
     background: rgba(0, 0, 0, 0.30);
 }
@@ -94,8 +95,11 @@ pub fn factory_invalid_overlay() -> gtk::Box {
     font-weight: bold;
     font-size: 16pt;
 }
-"#);
-    invalid_overlay.style_context().add_provider(&css, STYLE_PROVIDER_PRIORITY_APPLICATION);
+"#,
+    );
+    invalid_overlay
+        .style_context()
+        .add_provider(&css, STYLE_PROVIDER_PRIORITY_APPLICATION);
     invalid_overlay.style_context().add_class("invalid-overlay");
 
     let invalid_label = Label::new(Some("Invalid JSON"));
@@ -114,7 +118,12 @@ pub fn factory_invalid_overlay() -> gtk::Box {
     invalid_overlay
 }
 
-pub fn build_tree_from_text(text_view: TextView, model: TreeStore, tree_view: TreeView, invalid_overlay: gtk::Box) {
+pub fn build_tree_from_text(
+    text_view: TextView,
+    model: TreeStore,
+    tree_view: TreeView,
+    invalid_overlay: gtk::Box,
+) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let text = buffer.text(&start, &end, true).unwrap();
