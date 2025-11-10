@@ -1,10 +1,34 @@
 use gtk::glib::Value;
 use gtk::prelude::*;
 use gtk::{
-    Align, CellRendererText, CssProvider, Justification, Label, Orientation, TextView, TreePath,
-    TreeStore, TreeView, TreeViewColumn, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    Align, CellRendererText, CssProvider, Justification, Label, Orientation, Overlay, PolicyType,
+    ScrolledWindow, TextView, TreePath, TreeStore, TreeView, TreeViewColumn,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use serde_json::Value as JsonValue;
+use std::cell::Cell;
+use std::rc::Rc;
+
+pub struct TreeViewState {
+    pub overlay: Overlay,
+    pub tree_view: TreeView,
+    pub invalid_overlay: gtk::Box,
+    visible: Rc<Cell<bool>>,
+    model: TreeStore,
+}
+
+pub fn toggle_tree_view_visibility(text_view: &TextView, tree_view: &TreeViewState) {
+    let currently_visible = tree_view.visible.get();
+    if currently_visible {
+        tree_view.overlay.hide();
+        tree_view.visible.set(false);
+    } else {
+        tree_view.overlay.show();
+        tree_view.visible.set(true);
+
+        build_tree_from_text(text_view, tree_view);
+    }
+}
 
 fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &str, v: &JsonValue) {
     match v {
@@ -48,7 +72,7 @@ fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &st
     }
 }
 
-pub fn factory_tree_view() -> (TreeView, TreeStore) {
+pub fn factory_tree_view() -> std::rc::Rc<TreeViewState> {
     let tree_view = TreeView::builder().visible(true).expand(true).build();
 
     // Two columns: Key and Value
@@ -71,10 +95,30 @@ pub fn factory_tree_view() -> (TreeView, TreeStore) {
     tree_view.set_model(Some(&model));
     tree_view.set_headers_visible(true);
 
-    (tree_view, model)
+    let invalid_overlay = factory_invalid_overlay();
+
+    // Create an overlay to show invalid JSON message over the tree
+    let overlay = Overlay::builder().visible(true).build();
+    // Wrap the tree view in a scrolled window so it doesn't grow the main window
+    let scroller = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
+    scroller.set_policy(PolicyType::Automatic, PolicyType::Automatic);
+    scroller.set_hexpand(true);
+    scroller.set_vexpand(true);
+    scroller.add(&tree_view);
+
+    overlay.add(&scroller);
+    overlay.add_overlay(&invalid_overlay);
+
+    Rc::new(TreeViewState {
+        overlay,
+        tree_view,
+        invalid_overlay,
+        visible: Rc::new(Cell::new(true)),
+        model,
+    })
 }
 
-pub fn factory_invalid_overlay() -> gtk::Box {
+fn factory_invalid_overlay() -> gtk::Box {
     // Translucent grey overlay message for invalid JSON
     let invalid_overlay = gtk::Box::new(Orientation::Vertical, 8);
     invalid_overlay.set_visible(false);
@@ -118,12 +162,11 @@ pub fn factory_invalid_overlay() -> gtk::Box {
     invalid_overlay
 }
 
-pub fn build_tree_from_text(
-    text_view: TextView,
-    model: TreeStore,
-    tree_view: TreeView,
-    invalid_overlay: gtk::Box,
-) {
+pub fn build_tree_from_text(text_view: &TextView, tree_view: &TreeViewState) {
+    if (tree_view.visible.get()) == false {
+        return;
+    }
+
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let text = buffer.text(&start, &end, true).unwrap();
@@ -132,24 +175,25 @@ pub fn build_tree_from_text(
     match parsed {
         Ok(v) => {
             // Valid JSON: hide overlay and populate tree
-            invalid_overlay.hide();
-            model.clear();
-            append_json_value(&model, None, "🔥", &v);
+            tree_view.invalid_overlay.hide();
+            tree_view.model.clear();
+            append_json_value(&tree_view.model, None, "🔥", &v);
 
             // Expand the root node (first top-level row) by default
             let path = TreePath::new_first();
-            tree_view.expand_row(&path, false);
+            tree_view.tree_view.expand_row(&path, false);
         }
         Err(e) => {
             // Invalid JSON: clear tree, show overlay with message
-            if let Some(label) = invalid_overlay
+            if let Some(label) = tree_view
+                .invalid_overlay
                 .children()
                 .into_iter()
                 .find_map(|w| w.downcast::<Label>().ok())
             {
                 label.set_label(&format!("Invalid JSON\n{}", e));
             }
-            invalid_overlay.show();
+            tree_view.invalid_overlay.show();
         }
     }
 }

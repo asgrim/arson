@@ -4,8 +4,8 @@ use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
 use gtk::prelude::*;
 use gtk::{
-    Application, ApplicationWindow, Box, Orientation, Overlay, Paned, PolicyType, ScrolledWindow,
-    ShadowType, TextView, ToolButton, Toolbar, WindowPosition,
+    Application, ApplicationWindow, Box, Orientation, Paned, ScrolledWindow, ShadowType, TextView,
+    WindowPosition,
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -13,9 +13,10 @@ use std::rc::Rc;
 mod file_mgt;
 mod json_editor;
 mod menu_bar;
+mod tool_bar;
 mod tree_view;
 
-fn remove_double_newline_action(text_view: TextView) {
+pub fn remove_double_newline_action(text_view: TextView) {
     let buffer = text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let text_content = buffer.text(&start, &end, true).unwrap();
@@ -56,69 +57,8 @@ fn main() {
         let menu_bar = menu_bar::factory_menu_bar();
         v_box.pack_start(&menu_bar.menu_bar, false, false, 0);
 
-        let toolbar = Toolbar::builder().visible(true).expand(false).build();
-        v_box.add(&toolbar);
-
-        let pretty_button = ToolButton::builder()
-            .visible(true)
-            .label("Pretty")
-            .tooltip_text("Format this JSON to be human-readable")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("format-indent-more")
-            .build();
-        toolbar.add(&pretty_button);
-
-        let minify_button = ToolButton::builder()
-            .visible(true)
-            .label("Minify")
-            .tooltip_text("Remove extra spaces and newlines to compact space")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("format-justify-fill")
-            .build();
-        toolbar.add(&minify_button);
-
-        let remove_double_newlines = ToolButton::builder()
-            .visible(true)
-            .label("Remove \\n\\n")
-            .tooltip_text("Remove double-newlines, i.e. \\n\\n")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("error-correct-symbolic")
-            .build();
-        toolbar.add(&remove_double_newlines);
-
-        let unescape_json_string = ToolButton::builder()
-            .visible(true)
-            .label("Unescape")
-            .tooltip_text("Remove backslashes from escaped characters")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("document-properties-symbolic")
-            .build();
-        toolbar.add(&unescape_json_string);
-
-        let escape_json_string = ToolButton::builder()
-            .visible(true)
-            .label("Escape")
-            .tooltip_text("Escape current text into a JSON string (adds quotes and backslashes)")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("document-save-as-symbolic")
-            .build();
-        toolbar.add(&escape_json_string);
-
-        // Toggle Tree View panel visibility
-        let toggle_tree_button = ToolButton::builder()
-            .visible(true)
-            .label("Toggle Tree")
-            .tooltip_text("Show/Hide the tree view panel")
-            .is_important(true)
-            .use_underline(true)
-            .icon_name("view-list-symbolic")
-            .build();
-        toolbar.add(&toggle_tree_button);
+        let tool_bar = tool_bar::factory_tool_bar();
+        v_box.add(&tool_bar.toolbar);
 
         paned.set_visible(true);
         v_box.add(&paned);
@@ -138,36 +78,20 @@ fn main() {
             .build();
         scrolled_window.add(&text_view);
 
-        pretty_button.connect_clicked({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| json_editor::prettify_json_action(win.clone(), text_view.clone())
-        });
+        let tree_view = tree_view::factory_tree_view();
 
-        minify_button.connect_clicked({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| json_editor::minify_json_action(win.clone(), text_view.clone())
-        });
-
-        remove_double_newlines.connect_clicked({
-            let text_view = text_view.clone();
-            move |_| remove_double_newline_action(text_view.clone())
-        });
-
-        unescape_json_string.connect_clicked({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| json_editor::unescape_json_action(win.clone(), text_view.clone())
-        });
-
-        escape_json_string.connect_clicked({
-            let win = win.clone();
-            let text_view = text_view.clone();
-            move |_| json_editor::escape_json_action(win.clone(), text_view.clone())
-        });
-
-        menu_bar::attach_listeners(&menu_bar, &win.clone(), &text_view.clone(), &fire_emoji_icon_pb.clone());
+        tool_bar::attach_listeners(
+            &tool_bar,
+            &win.clone(),
+            &text_view.clone(),
+            tree_view.clone(),
+        );
+        menu_bar::attach_listeners(
+            &menu_bar,
+            &win.clone(),
+            &text_view.clone(),
+            &fire_emoji_icon_pb.clone(),
+        );
 
         win.connect_scroll_event({
             let text_view = text_view.clone();
@@ -193,52 +117,7 @@ fn main() {
             }
         });
 
-        let (tree_view, model) = tree_view::factory_tree_view();
-        let invalid_overlay = tree_view::factory_invalid_overlay();
-
-        // Create an overlay to show invalid JSON message over the tree
-        let overlay = Overlay::builder().visible(true).build();
-        // Wrap the tree view in a scrolled window so it doesn't grow the main window
-        let scroller = ScrolledWindow::new(None::<&gtk::Adjustment>, None::<&gtk::Adjustment>);
-        scroller.set_policy(PolicyType::Automatic, PolicyType::Automatic);
-        scroller.set_hexpand(true);
-        scroller.set_vexpand(true);
-        scroller.add(&tree_view);
-
-        overlay.add(&scroller);
-        overlay.add_overlay(&invalid_overlay);
-
-        paned.pack2(&overlay, true, true);
-
-        // Track Tree visibility state
-        let tree_visible = Rc::new(Cell::new(true));
-
-        // Wire toggle button to show/hide the tree panel and update state
-        toggle_tree_button.connect_clicked({
-            let overlay = overlay.clone();
-            let tree_visible = tree_visible.clone();
-            let text_view = text_view.clone();
-            let model = model.clone();
-            let tree_view = tree_view.clone();
-            let invalid_overlay = invalid_overlay.clone();
-            move |_| {
-                let currently_visible = tree_visible.get();
-                if currently_visible {
-                    overlay.hide();
-                    tree_visible.set(false);
-                } else {
-                    overlay.show();
-                    tree_visible.set(true);
-                    // Rebuild once when showing
-                    tree_view::build_tree_from_text(
-                        text_view.clone(),
-                        model.clone(),
-                        tree_view.clone(),
-                        invalid_overlay.clone(),
-                    );
-                }
-            }
-        });
+        paned.pack2(&tree_view.overlay, true, true);
 
         let init_done = Rc::new(Cell::new(false));
         paned.connect_size_allocate({
@@ -252,23 +131,12 @@ fn main() {
             }
         });
 
-        // Auto-update tree view when text changes (disabled when hidden)
         if let Some(buffer) = text_view.buffer() {
             buffer.connect_changed({
                 let text_view = text_view.clone();
-                let model = model.clone();
                 let tree_view = tree_view.clone();
-                let invalid_overlay = invalid_overlay.clone();
-                let tree_visible = tree_visible.clone();
                 move |_| {
-                    if tree_visible.get() {
-                        tree_view::build_tree_from_text(
-                            text_view.clone(),
-                            model.clone(),
-                            tree_view.clone(),
-                            invalid_overlay.clone(),
-                        );
-                    }
+                    tree_view::build_tree_from_text(&text_view.clone(), tree_view.as_ref());
                 }
             });
         }
