@@ -225,7 +225,7 @@ pub fn unescape_json_action(win: ApplicationWindow, json_editor: JsonEditorState
     }
 }
 
-pub fn escape_json_action(_win: ApplicationWindow, json_editor: JsonEditorState) {
+pub fn escape_json_action(json_editor: JsonEditorState) {
     // Escape the current buffer into a JSON string
     // Example input: {"a":1}
     // Output: "{\"a\":1}"

@@ -117,9 +117,8 @@ pub fn attach_listeners(
     });
 
     tool_bar.escape_json_string.connect_clicked({
-        let win = win.clone();
         let json_editor = json_editor.clone();
-        move |_| json_editor::escape_json_action(win.clone(), json_editor.clone())
+        move |_| json_editor::escape_json_action(json_editor.clone())
     });
 
     tool_bar.toggle_tree_button.connect_clicked({
