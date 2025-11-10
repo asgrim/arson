@@ -1,18 +1,14 @@
+use crate::tree_view;
 use crate::tree_view::TreeViewState;
-use crate::{json_editor, tree_view};
 use gtk::gdk::{EventKey, EventScroll, ModifierType, ScrollDirection};
 use gtk::glib::Propagation;
 use gtk::prelude::*;
-use gtk::prelude::{
-    CssProviderExt, DialogExt, GtkWindowExt, StyleContextExt, StyleContextExtManual, TextBufferExt,
-    TextViewExt, WidgetExt,
-};
 use gtk::{
     ApplicationWindow, ButtonsType, CssProvider, MessageDialog, MessageType, ScrolledWindow,
     ShadowType, StateFlags, TextBuffer, TextView, WindowPosition,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 
 #[derive(Clone)]
 pub struct JsonEditorState {
@@ -53,12 +49,9 @@ pub fn attach_listeners(json_editor: JsonEditorState, tree_view: TreeViewState) 
     }
 }
 
-pub fn init_text_buffer(json_editor: JsonEditorState) {
-    retrieve_buffer(json_editor.clone()).set_text("{}");
-}
-
-pub fn focus(json_editor: JsonEditorState) {
+pub fn init_on_show(json_editor: JsonEditorState) {
     json_editor.text_view.grab_focus();
+    retrieve_buffer(json_editor.clone()).set_text("{}");
 }
 
 pub fn retrieve_buffer(json_editor: JsonEditorState) -> TextBuffer {

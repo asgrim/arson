@@ -3,7 +3,7 @@ use gtk::glib::Value;
 use gtk::prelude::*;
 use gtk::{
     Align, CellRendererText, CssProvider, Justification, Label, Orientation, Overlay, PolicyType,
-    ScrolledWindow, TextView, TreePath, TreeStore, TreeView, TreeViewColumn,
+    ScrolledWindow, TreePath, TreeStore, TreeView, TreeViewColumn,
     STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 use serde_json::Value as JsonValue;

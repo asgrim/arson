@@ -1,9 +1,6 @@
 use crate::json_editor;
 use crate::json_editor::JsonEditorState;
-use gtk::prelude::{
-    ContainerExt, DialogExt, DialogExtManual, EntryExt, FileChooserExt, GtkWindowExt,
-    TextBufferExt, TextViewExt, WidgetExt,
-};
+use gtk::prelude::*;
 use gtk::{
     ApplicationWindow, ButtonsType, FileChooserAction, FileChooserDialog, MessageDialog,
     MessageType, ResponseType, WindowPosition,

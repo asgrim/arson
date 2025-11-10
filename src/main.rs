@@ -3,10 +3,7 @@ use gtk::gdk_pixbuf::Pixbuf;
 use gtk::gio::{Cancellable, MemoryInputStream};
 use gtk::glib::Bytes;
 use gtk::prelude::*;
-use gtk::{
-    Application, ApplicationWindow, Box, Orientation, Paned, ScrolledWindow, ShadowType, TextView,
-    WindowPosition,
-};
+use gtk::{Application, ApplicationWindow, Box, Orientation, Paned, WindowPosition};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -72,6 +69,7 @@ fn main() {
             json_editor.clone(),
             &fire_emoji_icon_pb.clone(),
         );
+        json_editor::attach_listeners(json_editor.clone(), tree_view.clone());
 
         win.connect_scroll_event({
             let json_editor = json_editor.clone();
@@ -96,7 +94,7 @@ fn main() {
         win.connect_show({
             let json_editor = json_editor.clone();
             move |_| {
-                json_editor::focus(json_editor.clone());
+                json_editor::init_on_show(json_editor.clone());
             }
         });
 
@@ -115,7 +113,6 @@ fn main() {
         });
 
         win.show_all();
-        json_editor::init_text_buffer(json_editor.clone());
     });
 
     app.run();
