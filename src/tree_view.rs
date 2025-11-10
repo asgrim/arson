@@ -1,3 +1,4 @@
+use crate::json_editor;
 use gtk::glib::Value;
 use gtk::prelude::*;
 use gtk::{
@@ -9,6 +10,7 @@ use serde_json::Value as JsonValue;
 use std::cell::Cell;
 use std::rc::Rc;
 
+#[derive(Clone)]
 pub struct TreeViewState {
     pub overlay: Overlay,
     pub tree_view: TreeView,
@@ -17,7 +19,10 @@ pub struct TreeViewState {
     model: TreeStore,
 }
 
-pub fn toggle_tree_view_visibility(text_view: &TextView, tree_view: &TreeViewState) {
+pub fn toggle_tree_view_visibility(
+    json_editor: json_editor::JsonEditorState,
+    tree_view: TreeViewState,
+) {
     let currently_visible = tree_view.visible.get();
     if currently_visible {
         tree_view.overlay.hide();
@@ -26,7 +31,7 @@ pub fn toggle_tree_view_visibility(text_view: &TextView, tree_view: &TreeViewSta
         tree_view.overlay.show();
         tree_view.visible.set(true);
 
-        build_tree_from_text(text_view, tree_view);
+        build_tree_from_text(json_editor, tree_view);
     }
 }
 
@@ -72,7 +77,7 @@ fn append_json_value(model: &TreeStore, parent: Option<&gtk::TreeIter>, key: &st
     }
 }
 
-pub fn factory_tree_view() -> std::rc::Rc<TreeViewState> {
+pub fn factory_tree_view() -> TreeViewState {
     let tree_view = TreeView::builder().visible(true).expand(true).build();
 
     // Two columns: Key and Value
@@ -109,13 +114,13 @@ pub fn factory_tree_view() -> std::rc::Rc<TreeViewState> {
     overlay.add(&scroller);
     overlay.add_overlay(&invalid_overlay);
 
-    Rc::new(TreeViewState {
+    TreeViewState {
         overlay,
         tree_view,
         invalid_overlay,
         visible: Rc::new(Cell::new(true)),
         model,
-    })
+    }
 }
 
 fn factory_invalid_overlay() -> gtk::Box {
@@ -162,12 +167,12 @@ fn factory_invalid_overlay() -> gtk::Box {
     invalid_overlay
 }
 
-pub fn build_tree_from_text(text_view: &TextView, tree_view: &TreeViewState) {
+pub fn build_tree_from_text(json_editor: json_editor::JsonEditorState, tree_view: TreeViewState) {
     if (tree_view.visible.get()) == false {
         return;
     }
 
-    let buffer = text_view.buffer().unwrap();
+    let buffer = json_editor::retrieve_buffer(json_editor);
     let (start, end) = buffer.bounds();
     let text = buffer.text(&start, &end, true).unwrap();
 

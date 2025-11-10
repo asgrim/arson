@@ -16,14 +16,6 @@ mod menu_bar;
 mod tool_bar;
 mod tree_view;
 
-pub fn remove_double_newline_action(text_view: TextView) {
-    let buffer = text_view.buffer().unwrap();
-    let (start, end) = buffer.bounds();
-    let text_content = buffer.text(&start, &end, true).unwrap();
-
-    buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
-}
-
 fn main() {
     let app = Application::builder()
         .application_id("com.jamestitcumb.ArsonGtk")
@@ -63,57 +55,48 @@ fn main() {
         paned.set_visible(true);
         v_box.add(&paned);
 
-        let scrolled_window = ScrolledWindow::builder()
-            .visible(true)
-            .can_focus(true)
-            .shadow_type(ShadowType::In)
-            .expand(true)
-            .build();
-        paned.pack1(&scrolled_window, true, true);
-
-        let text_view = TextView::builder()
-            .visible(true)
-            .can_focus(true)
-            .monospace(true)
-            .build();
-        scrolled_window.add(&text_view);
+        let json_editor = json_editor::factory_json_editor();
+        paned.pack1(&json_editor.scrolled_window, true, true);
 
         let tree_view = tree_view::factory_tree_view();
 
         tool_bar::attach_listeners(
             &tool_bar,
             &win.clone(),
-            &text_view.clone(),
+            json_editor.clone(),
             tree_view.clone(),
         );
         menu_bar::attach_listeners(
             &menu_bar,
             &win.clone(),
-            &text_view.clone(),
+            json_editor.clone(),
             &fire_emoji_icon_pb.clone(),
         );
 
         win.connect_scroll_event({
-            let text_view = text_view.clone();
+            let json_editor = json_editor.clone();
             move |_, event_key| {
                 json_editor::ctrl_scroll_resize_text_view_action(
                     event_key.clone(),
-                    text_view.clone(),
+                    json_editor.clone(),
                 )
             }
         });
 
         win.connect_key_press_event({
-            let text_view = text_view.clone();
+            let json_editor = json_editor.clone();
             move |_, event_key| {
-                json_editor::ctrl_plus_minus_text_view_action(event_key.clone(), text_view.clone())
+                json_editor::ctrl_plus_minus_text_view_action(
+                    event_key.clone(),
+                    json_editor.clone(),
+                )
             }
         });
 
         win.connect_show({
-            let text_view = text_view.clone();
+            let json_editor = json_editor.clone();
             move |_| {
-                text_view.grab_focus();
+                json_editor::focus(json_editor.clone());
             }
         });
 
@@ -131,18 +114,8 @@ fn main() {
             }
         });
 
-        if let Some(buffer) = text_view.buffer() {
-            buffer.connect_changed({
-                let text_view = text_view.clone();
-                let tree_view = tree_view.clone();
-                move |_| {
-                    tree_view::build_tree_from_text(&text_view.clone(), tree_view.as_ref());
-                }
-            });
-        }
-
         win.show_all();
-        text_view.buffer().unwrap().set_text("{}");
+        json_editor::init_text_buffer(json_editor.clone());
     });
 
     app.run();

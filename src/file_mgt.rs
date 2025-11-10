@@ -1,16 +1,18 @@
+use crate::json_editor;
+use crate::json_editor::JsonEditorState;
 use gtk::prelude::{
     ContainerExt, DialogExt, DialogExtManual, EntryExt, FileChooserExt, GtkWindowExt,
     TextBufferExt, TextViewExt, WidgetExt,
 };
 use gtk::{
     ApplicationWindow, ButtonsType, FileChooserAction, FileChooserDialog, MessageDialog,
-    MessageType, ResponseType, TextView, WindowPosition,
+    MessageType, ResponseType, WindowPosition,
 };
 use serde_json::Value;
 use std::fs::File;
 use std::io::{BufReader, Read};
 
-pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView) {
+pub fn file_open_item_action(win: ApplicationWindow, json_editor: JsonEditorState) {
     let file_chooser = FileChooserDialog::builder()
         .title("Open File")
         .parent(&win)
@@ -20,7 +22,7 @@ pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView) {
     file_chooser.add_buttons(&[("Open", ResponseType::Ok), ("Cancel", ResponseType::Cancel)]);
 
     file_chooser.connect_response({
-        let text_view = text_view.clone();
+        let json_editor = json_editor.clone();
         move |file_chooser, response| {
             if response == ResponseType::Ok {
                 let filename = file_chooser.filename().expect("Couldn't get filename");
@@ -30,7 +32,7 @@ pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView) {
                 let mut contents = String::new();
                 let _ = reader.read_to_string(&mut contents);
 
-                text_view.buffer().unwrap().set_text(&contents);
+                json_editor::retrieve_buffer(json_editor.clone()).set_text(&contents);
             }
             file_chooser.close();
         }
@@ -39,7 +41,7 @@ pub fn file_open_item_action(win: ApplicationWindow, text_view: TextView) {
     file_chooser.show_all();
 }
 
-pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView) {
+pub fn file_open_url_item_action(win: ApplicationWindow, json_editor: JsonEditorState) {
     let url_entry_dialog = gtk::Dialog::builder()
         .transient_for(&win)
         .window_position(WindowPosition::CenterOnParent)
@@ -55,7 +57,7 @@ pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView) {
 
     url_entry_dialog.connect_response({
         let win = win.clone();
-        let text_view = text_view.clone();
+        let json_editor = json_editor.clone();
         move |url_entry_dialog, response| {
             if response == ResponseType::Ok {
                 let url_text = url_entry_text.text();
@@ -106,8 +108,7 @@ pub fn file_open_url_item_action(win: ApplicationWindow, text_view: TextView) {
                     }
                 };
 
-                let buffer = text_view.buffer().unwrap();
-                buffer.set_text(body.as_str());
+                json_editor::retrieve_buffer(json_editor.clone()).set_text(body.as_str());
             }
             url_entry_dialog.close();
         }

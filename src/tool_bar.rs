@@ -1,5 +1,5 @@
 use crate::tree_view::TreeViewState;
-use crate::{json_editor, remove_double_newline_action, tree_view};
+use crate::{json_editor, tree_view};
 use gtk::prelude::*;
 use gtk::{ToolButton, Toolbar};
 
@@ -90,41 +90,41 @@ pub fn factory_tool_bar() -> ToolBarState {
 pub fn attach_listeners(
     tool_bar: &ToolBarState,
     win: &gtk::ApplicationWindow,
-    text_view: &gtk::TextView,
-    tree_view: std::rc::Rc<TreeViewState>,
+    json_editor: json_editor::JsonEditorState,
+    tree_view: TreeViewState,
 ) {
     tool_bar.pretty_button.connect_clicked({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| json_editor::prettify_json_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| json_editor::prettify_json_action(win.clone(), json_editor.clone())
     });
 
     tool_bar.minify_button.connect_clicked({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| json_editor::minify_json_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| json_editor::minify_json_action(win.clone(), json_editor.clone())
     });
 
     tool_bar.remove_double_newlines.connect_clicked({
-        let text_view = text_view.clone();
-        move |_| remove_double_newline_action(text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| json_editor::remove_double_newline_action(json_editor.clone())
     });
 
     tool_bar.unescape_json_string.connect_clicked({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| json_editor::unescape_json_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| json_editor::unescape_json_action(win.clone(), json_editor.clone())
     });
 
     tool_bar.escape_json_string.connect_clicked({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| json_editor::escape_json_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| json_editor::escape_json_action(win.clone(), json_editor.clone())
     });
 
     tool_bar.toggle_tree_button.connect_clicked({
-        let text_view = text_view.clone();
+        let json_editor = json_editor.clone();
         let tree_view = tree_view.clone();
-        move |_| tree_view::toggle_tree_view_visibility(&text_view, tree_view.as_ref())
+        move |_| tree_view::toggle_tree_view_visibility(json_editor.clone(), tree_view.clone())
     });
 }

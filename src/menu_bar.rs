@@ -51,7 +51,7 @@ pub fn factory_menu_bar() -> MenuBarState {
 pub fn attach_listeners(
     menu_bar: &MenuBarState,
     win: &gtk::ApplicationWindow,
-    text_view: &gtk::TextView,
+    json_editor: crate::json_editor::JsonEditorState,
     fire_emoji_icon_pb: &gtk::gdk_pixbuf::Pixbuf,
 ) {
     menu_bar.file_quit_item.connect_activate({
@@ -63,14 +63,14 @@ pub fn attach_listeners(
 
     menu_bar.file_open_item.connect_activate({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| file_mgt::file_open_item_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| file_mgt::file_open_item_action(win.clone(), json_editor.clone())
     });
 
     menu_bar.file_open_url_item.connect_activate({
         let win = win.clone();
-        let text_view = text_view.clone();
-        move |_| file_mgt::file_open_url_item_action(win.clone(), text_view.clone())
+        let json_editor = json_editor.clone();
+        move |_| file_mgt::file_open_url_item_action(win.clone(), json_editor.clone())
     });
 
     menu_bar.help_about_item.connect_activate({

@@ -1,18 +1,81 @@
+use crate::tree_view::TreeViewState;
+use crate::{json_editor, tree_view};
 use gtk::gdk::{EventKey, EventScroll, ModifierType, ScrollDirection};
 use gtk::glib::Propagation;
+use gtk::prelude::*;
 use gtk::prelude::{
     CssProviderExt, DialogExt, GtkWindowExt, StyleContextExt, StyleContextExtManual, TextBufferExt,
     TextViewExt, WidgetExt,
 };
 use gtk::{
-    ApplicationWindow, ButtonsType, CssProvider, MessageDialog, MessageType, StateFlags, TextView,
-    WindowPosition, STYLE_PROVIDER_PRIORITY_APPLICATION,
+    ApplicationWindow, ButtonsType, CssProvider, MessageDialog, MessageType, ScrolledWindow,
+    ShadowType, StateFlags, TextBuffer, TextView, WindowPosition,
+    STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
+
+#[derive(Clone)]
+pub struct JsonEditorState {
+    pub scrolled_window: ScrolledWindow,
+    text_view: TextView,
+}
+
+pub fn factory_json_editor() -> JsonEditorState {
+    let scrolled_window = ScrolledWindow::builder()
+        .visible(true)
+        .can_focus(true)
+        .shadow_type(ShadowType::In)
+        .expand(true)
+        .build();
+
+    let text_view = TextView::builder()
+        .visible(true)
+        .can_focus(true)
+        .monospace(true)
+        .build();
+    scrolled_window.add(&text_view);
+
+    JsonEditorState {
+        scrolled_window,
+        text_view,
+    }
+}
+
+pub fn attach_listeners(json_editor: JsonEditorState, tree_view: TreeViewState) {
+    if let Some(buffer) = json_editor.text_view.buffer() {
+        let json_editor = json_editor.clone();
+        let tree_view = tree_view.clone();
+        buffer.connect_changed({
+            move |_| {
+                tree_view::build_tree_from_text(json_editor.clone(), tree_view.clone());
+            }
+        });
+    }
+}
+
+pub fn init_text_buffer(json_editor: JsonEditorState) {
+    retrieve_buffer(json_editor.clone()).set_text("{}");
+}
+
+pub fn focus(json_editor: JsonEditorState) {
+    json_editor.text_view.grab_focus();
+}
+
+pub fn retrieve_buffer(json_editor: JsonEditorState) -> TextBuffer {
+    json_editor.text_view.buffer().unwrap()
+}
+
+pub fn remove_double_newline_action(json_editor: JsonEditorState) {
+    let buffer = json_editor.text_view.buffer().unwrap();
+    let (start, end) = buffer.bounds();
+    let text_content = buffer.text(&start, &end, true).unwrap();
+
+    buffer.set_text(text_content.as_str().replace("\n\n", "").as_str());
+}
 
 pub fn ctrl_scroll_resize_text_view_action(
     event_key: EventScroll,
-    text_view: TextView,
+    json_editor: JsonEditorState,
 ) -> Propagation {
     if event_key.state().contains(ModifierType::CONTROL_MASK)
         && (event_key.direction() == ScrollDirection::Down
@@ -24,13 +87,18 @@ pub fn ctrl_scroll_resize_text_view_action(
             dir = -1;
         }
 
-        let cur_size =
-            text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+        let cur_size = json_editor
+            .text_view
+            .style_context()
+            .font(StateFlags::NORMAL)
+            .size()
+            / gtk::pango::SCALE;
         let css_override = CssProvider::new();
         let _ = css_override
             .load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
 
-        text_view
+        json_editor
+            .text_view
             .style_context()
             .add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
@@ -38,7 +106,10 @@ pub fn ctrl_scroll_resize_text_view_action(
     Propagation::Proceed
 }
 
-pub fn ctrl_plus_minus_text_view_action(event_key: EventKey, text_view: TextView) -> Propagation {
+pub fn ctrl_plus_minus_text_view_action(
+    event_key: EventKey,
+    json_editor: JsonEditorState,
+) -> Propagation {
     if event_key.state().contains(ModifierType::CONTROL_MASK)
         && (event_key.hardware_keycode() == 86 || event_key.hardware_keycode() == 82)
     {
@@ -47,13 +118,18 @@ pub fn ctrl_plus_minus_text_view_action(event_key: EventKey, text_view: TextView
             dir = 1;
         }
 
-        let cur_size =
-            text_view.style_context().font(StateFlags::NORMAL).size() / gtk::pango::SCALE;
+        let cur_size = json_editor
+            .text_view
+            .style_context()
+            .font(StateFlags::NORMAL)
+            .size()
+            / gtk::pango::SCALE;
         let css_override = CssProvider::new();
         let _ = css_override
             .load_from_data(format!("* {{ font-size: {}pt; }}", cur_size + dir).as_bytes());
 
-        text_view
+        json_editor
+            .text_view
             .style_context()
             .add_provider(&css_override, STYLE_PROVIDER_PRIORITY_APPLICATION);
     }
@@ -61,8 +137,8 @@ pub fn ctrl_plus_minus_text_view_action(event_key: EventKey, text_view: TextView
     Propagation::Proceed
 }
 
-pub fn prettify_json_action(win: ApplicationWindow, text_view: TextView) {
-    let buffer = text_view.buffer().unwrap();
+pub fn prettify_json_action(win: ApplicationWindow, json_editor: JsonEditorState) {
+    let buffer = json_editor.text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let pretty_json = buffer.text(&start, &end, true).unwrap();
 
@@ -88,8 +164,8 @@ pub fn prettify_json_action(win: ApplicationWindow, text_view: TextView) {
     buffer.set_text(&serde_json::to_string_pretty(&v).unwrap());
 }
 
-pub fn minify_json_action(win: ApplicationWindow, text_view: TextView) {
-    let buffer = text_view.buffer().unwrap();
+pub fn minify_json_action(win: ApplicationWindow, json_editor: JsonEditorState) {
+    let buffer = json_editor.text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let ugly_json = buffer.text(&start, &end, true).unwrap();
 
@@ -115,11 +191,11 @@ pub fn minify_json_action(win: ApplicationWindow, text_view: TextView) {
     buffer.set_text(&serde_json::to_string(&v).unwrap());
 }
 
-pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView) {
+pub fn unescape_json_action(win: ApplicationWindow, json_editor: JsonEditorState) {
     // Unescape a buffer that contains JSON encoded as a JSON string
     // Example input: {\"a\":1} or "{\"a\":1}"
     // Output: {"a":1}
-    let buffer = text_view.buffer().unwrap();
+    let buffer = json_editor.text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let current_text = buffer.text(&start, &end, true).unwrap();
 
@@ -156,11 +232,11 @@ pub fn unescape_json_action(win: ApplicationWindow, text_view: TextView) {
     }
 }
 
-pub fn escape_json_action(_win: ApplicationWindow, text_view: TextView) {
+pub fn escape_json_action(_win: ApplicationWindow, json_editor: JsonEditorState) {
     // Escape the current buffer into a JSON string
     // Example input: {"a":1}
     // Output: "{\"a\":1}"
-    let buffer = text_view.buffer().unwrap();
+    let buffer = json_editor.text_view.buffer().unwrap();
     let (start, end) = buffer.bounds();
     let current_text = buffer.text(&start, &end, true).unwrap();
 
